@@ -15,6 +15,7 @@
 - [x] Implement resource packing for `array/npy`.
 - [x] Implement `load_manifest(resources_dir)`.
 - [x] Implement payload summary helper for request JSON previews.
+- [x] Restrict payload summary shortening to large `data` fields only.
 - [x] Implement thin `BaseVisWindow` contract.
 - [x] Implement `AppContext.component_resource_path(...)`.
 - [x] Implement `create_app_context(config_path, project_root)`.
@@ -28,6 +29,7 @@
 - [x] Implement JSON demo render handler success path.
 - [x] Wire JSON demo render button.
 - [x] Implement JSON demo mock Flask server for the minimum demo.
+- [x] Validate JSON demo mock server payload and return standard error responses.
 - [x] Add JSON demo example selector before loading input JSON.
 - [x] Make JSON demo input directly editable with `gr.Code(language="json")`.
 - [x] Move JSON demo Show Cost checkbox above Visualization Result.
@@ -50,8 +52,8 @@
 - [x] Replace HTML status indicator with Gradio Markdown/Button components.
 - [x] Check JsonDemo server health once during initial window build.
 - [x] Handle invalid editable JSON input in JsonDemo preview and render flows.
-- [ ] Add `PerceptionDemoVisWindow` minimal Gradio UI.
-- [ ] Add perception demo request preview helper.
+- [x] Add `PerceptionDemoVisWindow` minimal Gradio UI.
+- [x] Add perception demo request preview helper.
 - [ ] Wire perception demo preview and render buttons.
 - [ ] Add `PathPlannerDemoVisWindow` minimal Gradio UI.
 - [ ] Add path planner request preview helper.
@@ -61,8 +63,8 @@
 
 ## Resources
 
-- [ ] Create `components/perception_demo/resources/manifest.json`.
-- [ ] Add minimal perception demo image resources.
+- [x] Create `components/perception_demo/resources/manifest.json`.
+- [x] Add minimal perception demo image resources.
 - [ ] Create `components/path_planner_demo/resources/manifest.json`.
 - [ ] Add minimal path planner map resources.
 - [x] Create `components/json_demo/resources/manifest.json`.

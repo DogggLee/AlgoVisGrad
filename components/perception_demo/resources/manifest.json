@@ -1,0 +1,9 @@
+[
+  {
+    "id": "sample_image",
+    "name": "Sample Image",
+    "preview": "images/sample.png",
+    "data": "images/sample.png",
+    "content_type": "image/png"
+  }
+]

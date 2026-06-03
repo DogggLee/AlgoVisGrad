@@ -64,7 +64,7 @@ def test_preview_json_demo_request_returns_summary_and_full_json_text() -> None:
         max_string_length=10,
     )
 
-    assert summary["input"]["payload"]["blob"] == "<base64 length=40>"
+    assert summary["input"]["payload"]["blob"] == "x" * 40
     assert '"request_id": "req-preview"' in full_text
     assert '"blob": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"' in full_text
 
@@ -117,7 +117,7 @@ def test_run_json_demo_render_calls_render_client_and_returns_ui_outputs() -> No
 
     assert image == "image-result"
     assert status == "Success. elapsed_ms=7"
-    assert request_json["input"]["payload"]["cost"] == "<base64 length=40>"
+    assert request_json["input"]["payload"]["cost"] == "x" * 40
     assert response_json["image"]["data"] == "<base64 length=40>"
     assert ctx.render_client.calls[0][0] == "json_demo"
     assert ctx.render_client.calls[0][1]["visualization"] == {"show_cost": True}
