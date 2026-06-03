@@ -1,8 +1,8 @@
 [
   {
-    "id": "two_groups",
-    "name": "Two Groups",
-    "data": "inputs/two_groups.json",
+    "id": "3x3_example",
+    "name": "3x3 Example",
+    "data": "inputs/3x3_example.json",
     "content_type": "application/json"
   }
 ]
