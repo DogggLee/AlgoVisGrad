@@ -1,0 +1,8 @@
+gradio
+requests
+pydantic
+pyyaml
+pillow
+numpy
+pytest
+Flask

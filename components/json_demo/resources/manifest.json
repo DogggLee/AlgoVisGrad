@@ -1,0 +1,8 @@
+[
+  {
+    "id": "two_groups",
+    "name": "Two Groups",
+    "data": "inputs/two_groups.json",
+    "content_type": "application/json"
+  }
+]
