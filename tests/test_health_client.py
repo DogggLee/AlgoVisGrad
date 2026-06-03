@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from threading import Thread
+from http.server import BaseHTTPRequestHandler
 
+from tests.helpers import run_test_server
 from utils.config_utils import AppConfig, AppSettings, ServerSettings
 from utils.health_client import HealthClient
 
@@ -27,11 +27,7 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 
 def test_health_client_reports_online_for_ok_health_response() -> None:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), HealthHandler)
-    thread = Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-
-    try:
+    with run_test_server(HealthHandler) as server:
         host, port = server.server_address
         config = AppConfig(
             app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
@@ -49,9 +45,6 @@ def test_health_client_reports_online_for_ok_health_response() -> None:
 
         assert status.state == "online"
         assert "planner" in status.message
-    finally:
-        server.shutdown()
-        server.server_close()
 
 def test_health_client_reports_offline_when_connection_fails() -> None:
     config = AppConfig(
@@ -85,11 +78,7 @@ class UnhealthyHandler(BaseHTTPRequestHandler):
 
 
 def test_health_client_reports_error_for_unhealthy_response() -> None:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), UnhealthyHandler)
-    thread = Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-
-    try:
+    with run_test_server(UnhealthyHandler) as server:
         host, port = server.server_address
         config = AppConfig(
             app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
@@ -107,9 +96,6 @@ def test_health_client_reports_error_for_unhealthy_response() -> None:
 
         assert status.state == "error"
         assert "unhealthy" in status.message
-    finally:
-        server.shutdown()
-        server.server_close()
 
 class HttpErrorHealthHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
@@ -121,11 +107,7 @@ class HttpErrorHealthHandler(BaseHTTPRequestHandler):
 
 
 def test_health_client_reports_error_for_http_error_response() -> None:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), HttpErrorHealthHandler)
-    thread = Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-
-    try:
+    with run_test_server(HttpErrorHealthHandler) as server:
         host, port = server.server_address
         config = AppConfig(
             app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
@@ -143,7 +125,4 @@ def test_health_client_reports_error_for_http_error_response() -> None:
 
         assert status.state == "error"
         assert "health check failed" in status.message
-    finally:
-        server.shutdown()
-        server.server_close()
 

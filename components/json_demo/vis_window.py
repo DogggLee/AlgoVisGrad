@@ -78,14 +78,14 @@ def parse_json_demo_input(value: str | dict[str, Any] | None) -> dict[str, Any]:
 
 
 def build_json_demo_payload(
-    user_payload: dict[str, Any],
+    user_payload: str | dict[str, Any],
     show_cost: bool,
     request_id: str,
 ) -> dict[str, Any]:
     """Build the standard render request payload for the JSON demo window.
 
     Args:
-        user_payload: User-provided JSON object passed under `input.payload`.
+        user_payload: User-provided JSON text or object passed under `input.payload`.
         show_cost: Whether the algorithm server should draw cost information.
         request_id: Client-generated request identifier for debugging/reproduction.
 
@@ -103,7 +103,7 @@ def build_json_demo_payload(
     }
 
 def preview_json_demo_request(
-    user_payload: dict[str, Any],
+    user_payload: str | dict[str, Any],
     show_cost: bool,
     request_id: str,
     max_string_length: int = 120,
@@ -111,7 +111,7 @@ def preview_json_demo_request(
     """Build JSON demo preview outputs without sending a render request.
 
     Args:
-        user_payload: User-provided JSON object passed under `input.payload`.
+        user_payload: User-provided JSON text or object passed under `input.payload`.
         show_cost: Whether cost visualization is requested.
         request_id: Client-generated request identifier for debugging/reproduction.
         max_string_length: Strings longer than this are summarized in the preview.
@@ -119,8 +119,18 @@ def preview_json_demo_request(
     Returns:
         Tuple of summarized payload dictionary and complete pretty-printed JSON text.
     """
+    try:
+        parsed_payload = parse_json_demo_input(user_payload)
+    except (json.JSONDecodeError, ValueError):
+        error_payload = {
+            "status": "error",
+            "error": {"message": "invalid JSON input"},
+            "request_id": request_id,
+        }
+        return error_payload, json.dumps(error_payload, ensure_ascii=False, indent=2)
+
     payload = build_json_demo_payload(
-        user_payload=user_payload,
+        user_payload=parsed_payload,
         show_cost=show_cost,
         request_id=request_id,
     )
@@ -179,14 +189,25 @@ def run_json_demo_render(
     Returns:
         Tuple of image result, status text, request JSON, and response JSON.
     """
+    try:
+        parsed_payload = parse_json_demo_input(user_payload)
+    except (json.JSONDecodeError, ValueError):
+        error_message = "invalid JSON input"
+        return (
+            None,
+            f"Error: {error_message}",
+            {"status": "error", "error": {"message": error_message}, "request_id": request_id},
+            {"status": "error", "error": {"message": error_message}},
+        )
+
     request_json, _full_text = preview_json_demo_request(
-        user_payload=user_payload,
+        user_payload=parsed_payload,
         show_cost=show_cost,
         request_id=request_id,
         max_string_length=max_string_length,
     )
     payload = build_json_demo_payload(
-        user_payload=user_payload,
+        user_payload=parsed_payload,
         show_cost=show_cost,
         request_id=request_id,
     )
@@ -285,7 +306,7 @@ class JsonDemoVisWindow(BaseVisWindow):
 
         def preview_request(user_payload: str | dict[str, Any], show_cost_value: bool) -> dict[str, Any]:
             request_payload, _full_text = preview_json_demo_request(
-                user_payload=parse_json_demo_input(user_payload),
+                user_payload=user_payload or {},
                 show_cost=show_cost_value,
                 request_id=f"{self.window_id}-preview",
             )
@@ -295,7 +316,7 @@ class JsonDemoVisWindow(BaseVisWindow):
             return run_json_demo_render(
                 ctx=ctx,
                 server_key=self.server_key,
-                user_payload=parse_json_demo_input(user_payload),
+                user_payload=user_payload or {},
                 show_cost=show_cost_value,
                 request_id=f"{self.window_id}-render",
             )

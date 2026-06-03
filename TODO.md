@@ -49,6 +49,7 @@
 - [x] Move JsonDemo service status to title row as green/red dot with refresh button.
 - [x] Replace HTML status indicator with Gradio Markdown/Button components.
 - [x] Check JsonDemo server health once during initial window build.
+- [x] Handle invalid editable JSON input in JsonDemo preview and render flows.
 - [ ] Add `PerceptionDemoVisWindow` minimal Gradio UI.
 - [ ] Add perception demo request preview helper.
 - [ ] Wire perception demo preview and render buttons.
@@ -69,17 +70,17 @@
 
 ## Documentation
 
-- [ ] Add JSON demo mock server run instructions.
-- [ ] Add `README.md` with setup, run, and test commands.
-- [ ] Document algorithm server `/health` and `/render` contracts.
-- [ ] Document supported payload `content_type` values.
-- [ ] Document `VisWindow` developer workflow.
-- [ ] Document map shape and `[x, y]` coordinate conventions.
+- [x] Add JSON demo mock server run instructions.
+- [x] Add `README.md` with setup, run, and test commands.
+- [x] Document algorithm server `/health` and `/render` contracts.
+- [x] Document supported payload `content_type` values.
+- [x] Document `VisWindow` developer workflow.
+- [x] Document map shape and `[x, y]` coordinate conventions.
 
 ## Maintenance
 
-- [ ] Add `.gitignore` for Python cache, pytest cache, local env files, and generated outputs.
-- [ ] Consider moving duplicated test HTTP server helpers into test utilities.
+- [x] Add `.gitignore` for Python cache, pytest cache, local env files, and generated outputs.
+- [x] Move duplicated test HTTP server helpers into test utilities.
 - [ ] Consider extracting shared request preview/render button patterns after all three demos exist.
 - [ ] Consider adding lightweight app smoke test for each demo tab once real windows are wired.
 

@@ -10,6 +10,7 @@ from threading import Thread
 from PIL import Image
 
 from utils.config_utils import AppConfig, AppSettings, ServerSettings
+from tests.helpers import run_test_server
 from utils.render_client import RenderClient, RenderRequestError
 
 
@@ -51,11 +52,7 @@ class RenderHandler(BaseHTTPRequestHandler):
 
 
 def test_render_client_posts_payload_and_decodes_image() -> None:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), RenderHandler)
-    thread = Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-
-    try:
+    with run_test_server(RenderHandler) as server:
         host, port = server.server_address
         config = AppConfig(
             app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
@@ -79,9 +76,6 @@ def test_render_client_posts_payload_and_decodes_image() -> None:
         assert RenderHandler.received_payload == payload
         assert image.size == (2, 3)
         assert meta == {"elapsed_ms": 12}
-    finally:
-        server.shutdown()
-        server.server_close()
 
 def test_render_client_can_return_decoded_image_and_full_response_payload() -> None:
     server = ThreadingHTTPServer(("127.0.0.1", 0), RenderHandler)

@@ -58,6 +58,35 @@ The selected JSON example has this shape:
 
 Point coordinates use `[x, y]`.
 
+
+## VisWindow Developer Workflow
+
+A visualization unit is implemented as a `BaseVisWindow` subclass. It is an embeddable Gradio component, not a full page.
+
+Minimum contract:
+
+```python
+class MyVisWindow(BaseVisWindow):
+    def build(ctx):
+        ...
+```
+
+Use `build(ctx)` to create controls inside the current Gradio container. Do not create `gr.Blocks` or top-level `gr.Tab` inside a `VisWindow`; the app layout owns those containers.
+
+Use the application context instead of reading config files or calling raw URLs directly:
+
+```python
+ctx.render_client.render_image_response(server_key, payload)
+ctx.health_client.check(server_key)
+ctx.component_resource_path("json_demo")
+```
+
+Current JSON demo layout convention:
+
+- Input column: example selector, preview/send controls, editable JSON input.
+- Render column: service status near the title, visualization toggles, output image, status/error text.
+- Debug row: full-width `Request JSON` and `Response JSON` tabs.
+
 ## Algorithm Server Contract
 
 Health check:
@@ -93,6 +122,53 @@ Successful image response:
   },
   "meta": {}
 }
+```
+
+
+Error response:
+
+```json
+{
+  "status": "error",
+  "error": {
+    "code": "INVALID_INPUT",
+    "message": "human-readable error"
+  },
+  "meta": {}
+}
+```
+
+## Payload Content Types
+
+Supported first-version payload content types:
+
+```text
+image/png
+image/jpeg
+array/list
+array/npy
+```
+
+Semantics:
+
+- `image/png`: `data` is PNG file bytes encoded as base64.
+- `image/jpeg`: `data` is JPEG file bytes encoded as base64.
+- `array/list`: `data` is a JSON list and is not base64 encoded.
+- `array/npy`: `data` is `.npy` file bytes encoded as base64.
+
+## Map And Coordinate Convention
+
+Map array shapes use `[H, W]` or `[H, W, C]`.
+
+Point coordinates use `[x, y]`.
+
+- `x` is the horizontal coordinate and maps to the array column index.
+- `y` is the vertical coordinate and maps to the array row index.
+
+Server-side array indexing should use:
+
+```python
+value = array[y, x]
 ```
 
 ## Tests

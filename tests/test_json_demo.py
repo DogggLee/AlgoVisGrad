@@ -348,3 +348,38 @@ def test_format_json_demo_health_indicator_uses_green_for_online_and_red_otherwi
     assert online_text == "🟢 online"
     assert offline_text == "🔴 offline"
 
+def test_run_json_demo_render_returns_error_outputs_for_invalid_json_text() -> None:
+    image, status, request_json, response_json = run_json_demo_render(
+        ctx=FakeCtx(),
+        server_key="json_demo",
+        user_payload="{bad json",
+        show_cost=True,
+        request_id="req-invalid-json",
+    )
+
+    assert image is None
+    assert status.startswith("Error: invalid JSON input")
+    assert request_json == {
+        "status": "error",
+        "error": {"message": "invalid JSON input"},
+        "request_id": "req-invalid-json",
+    }
+    assert response_json == {
+        "status": "error",
+        "error": {"message": "invalid JSON input"},
+    }
+
+def test_preview_json_demo_request_returns_error_for_invalid_json_text() -> None:
+    summary, full_text = preview_json_demo_request(
+        user_payload="{bad json",
+        show_cost=False,
+        request_id="req-preview-error",
+    )
+
+    assert summary == {
+        "status": "error",
+        "error": {"message": "invalid JSON input"},
+        "request_id": "req-preview-error",
+    }
+    assert '"status": "error"' in full_text
+
