@@ -45,7 +45,10 @@
 - [x] Add error handling path for `run_json_demo_render(...)`.
 - [x] Normalize render client errors into a platform exception.
 - [x] Normalize health client timeout/offline/error states.
-- [ ] Add health status display and manual refresh button to `JsonDemoVisWindow`.
+- [x] Add health status display and manual refresh button to `JsonDemoVisWindow`.
+- [x] Move JsonDemo service status to title row as green/red dot with refresh button.
+- [x] Replace HTML status indicator with Gradio Markdown/Button components.
+- [x] Check JsonDemo server health once during initial window build.
 - [ ] Add `PerceptionDemoVisWindow` minimal Gradio UI.
 - [ ] Add perception demo request preview helper.
 - [ ] Wire perception demo preview and render buttons.

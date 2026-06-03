@@ -130,6 +130,34 @@ def preview_json_demo_request(
     )
 
 
+def format_json_demo_health_indicator(status_text: str) -> str:
+    """Format JSON demo server status as a Gradio Markdown indicator.
+
+    Args:
+        status_text: Human-readable health status text starting with a state name.
+
+    Returns:
+        Markdown text with green or red circle status indicator.
+    """
+    state = status_text.split(":", 1)[0].strip() or "unknown"
+    indicator = "🟢" if state == "online" else "🔴"
+    return f"{indicator} {state}"
+
+
+def check_json_demo_health(ctx: Any, server_key: str) -> str:
+    """Check the bound JSON demo server and format status for display.
+
+    Args:
+        ctx: Application context containing a health_client.
+        server_key: Config key identifying the bound algorithm server.
+
+    Returns:
+        Human-readable status text in `state: message` format.
+    """
+    status = ctx.health_client.check(server_key)
+    return f"{status.state}: {status.message}"
+
+
 def run_json_demo_render(
     ctx: Any,
     server_key: str,
@@ -198,7 +226,18 @@ class JsonDemoVisWindow(BaseVisWindow):
         Returns:
             Dictionary of important Gradio components created by this window.
         """
-        gr.Markdown(f"## {self.title}")
+        try:
+            initial_health = check_json_demo_health(ctx, self.server_key)
+        except Exception:
+            initial_health = "unknown: not checked"
+
+        with gr.Row():
+            with gr.Column(scale=0, min_width=150):
+                title_text = gr.Markdown(f"## {self.title}")
+            with gr.Column(scale=0, min_width=90):
+                health_indicator = gr.Markdown(format_json_demo_health_indicator(initial_health))
+            with gr.Column(scale=0, min_width=48):
+                refresh_health_button = gr.Button("↻", size="sm", min_width=48)
         try:
             examples = load_json_demo_examples(ctx)
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
@@ -226,7 +265,7 @@ class JsonDemoVisWindow(BaseVisWindow):
                 )
             with gr.Column():
                 with gr.Row():
-                    show_cost = gr.Checkbox(label="Show Cost", value=True)
+                    show_cost = gr.Checkbox(label="Show Cost", value=True, scale=1)
                 output_image = gr.Image(
                     label="Visualization Result",
                     height=JSON_DEMO_RESULT_HEIGHT,
@@ -261,6 +300,14 @@ class JsonDemoVisWindow(BaseVisWindow):
                 request_id=f"{self.window_id}-render",
             )
 
+        def refresh_health() -> str:
+            return format_json_demo_health_indicator(check_json_demo_health(ctx, self.server_key))
+
+        refresh_health_button.click(
+            fn=refresh_health,
+            inputs=[],
+            outputs=[health_indicator],
+        )
         example_selector.change(
             fn=load_selected_example,
             inputs=[example_selector],
@@ -278,9 +325,12 @@ class JsonDemoVisWindow(BaseVisWindow):
         )
 
         return {
+            "title_text": title_text,
             "example_selector": example_selector,
             "json_input": json_input,
             "show_cost": show_cost,
+            "health_indicator": health_indicator,
+            "refresh_health_button": refresh_health_button,
             "preview_button": preview_button,
             "render_button": render_button,
             "output_image": output_image,

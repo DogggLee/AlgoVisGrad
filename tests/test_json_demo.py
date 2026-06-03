@@ -13,6 +13,8 @@ from components.json_demo.vis_window import (
     parse_json_demo_input,
     JSON_DEMO_EDITOR_LINES,
     JSON_DEMO_RESULT_HEIGHT,
+    check_json_demo_health,
+    format_json_demo_health_indicator,
 )
 from utils.app_context import AppContext
 from utils.config_utils import AppConfig, AppSettings
@@ -292,4 +294,57 @@ def test_run_json_demo_render_returns_error_outputs_when_render_fails() -> None:
         "status": "error",
         "error": {"message": "server unavailable"},
     }
+
+class FakeHealthClient:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def check(self, server_key):
+        self.calls.append(server_key)
+        return type("Status", (), {"state": "online", "message": "json server is online"})()
+
+
+class HealthCtx:
+    def __init__(self) -> None:
+        self.health_client = FakeHealthClient()
+
+
+def test_check_json_demo_health_returns_display_text() -> None:
+    ctx = HealthCtx()
+
+    text = check_json_demo_health(ctx, "json_demo")
+
+    assert text == "online: json server is online"
+    assert ctx.health_client.calls == ["json_demo"]
+
+def test_json_demo_build_checks_initial_health_status(tmp_path) -> None:
+    ctx = AppContext(
+        config=AppConfig(
+            app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
+            servers={},
+        ),
+        project_root=tmp_path,
+        health_client=FakeHealthClient(),
+    )
+    window = JsonDemoVisWindow(
+        window_id="json_demo",
+        title="JSON Demo",
+        server_key="json_demo",
+    )
+
+    with gr.Blocks():
+        components = window.build(ctx)
+
+    assert components["title_text"].value == "## JSON Demo"
+    assert components["health_indicator"].value == "🟢 online"
+    assert components["refresh_health_button"].value == "↻"
+    assert components["refresh_health_button"].size == "sm"
+    assert ctx.health_client.calls == ["json_demo"]
+
+def test_format_json_demo_health_indicator_uses_green_for_online_and_red_otherwise() -> None:
+    online_text = format_json_demo_health_indicator("online: json server is online")
+    offline_text = format_json_demo_health_indicator("offline: json server is offline")
+
+    assert online_text == "🟢 online"
+    assert offline_text == "🔴 offline"
 
