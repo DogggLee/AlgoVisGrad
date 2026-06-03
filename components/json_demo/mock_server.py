@@ -12,6 +12,60 @@ from PIL import Image, ImageDraw
 Point = tuple[int, int]
 
 
+class JsonDemoValidationError(ValueError):
+    """Raised when a JSON demo render payload violates demo input rules.
+
+    Args:
+        message: Human-readable validation failure description.
+
+    Returns:
+        Exception instance carrying the validation error message.
+    """
+
+
+def validate_json_demo_payload(payload: dict[str, Any]) -> None:
+    """Validate JSON demo group and map size payload fields.
+
+    Args:
+        payload: JSON object expected to contain group1, group2, and map_size.
+
+    Returns:
+        None when the payload is valid.
+
+    Raises:
+        JsonDemoValidationError: If required fields are missing or points are invalid.
+    """
+    for key in ("group1", "group2", "map_size"):
+        if key not in payload:
+            raise JsonDemoValidationError(f"missing required field: {key}")
+
+    height, width = _validate_map_size(payload["map_size"])
+    for group_key in ("group1", "group2"):
+        if not isinstance(payload[group_key], list):
+            raise JsonDemoValidationError(f"{group_key} must be a list of [x, y] points")
+        for point in payload[group_key]:
+            x, y = _to_point(point)
+            if x < 0 or x >= width or y < 0 or y >= height:
+                raise JsonDemoValidationError(f"{group_key} point {[x, y]} out of bounds for map_size {[height, width]}")
+
+
+def _validate_map_size(value: Any) -> tuple[int, int]:
+    """Validate and normalize the `[H, W]` map size value.
+
+    Args:
+        value: Candidate map size value.
+
+    Returns:
+        Tuple of positive integer height and width.
+    """
+    if not isinstance(value, list) or len(value) != 2:
+        raise JsonDemoValidationError("map_size must be [H, W]")
+    height, width = int(value[0]), int(value[1])
+    if height <= 0 or width <= 0:
+        raise JsonDemoValidationError("map_size values must be positive")
+    return height, width
+
+
 def create_json_demo_mock_app() -> Flask:
     """Create the Flask mock server for the JSON demo algorithm service.
 
@@ -30,8 +84,20 @@ def create_json_demo_mock_app() -> Flask:
     @app.post("/render")
     def render():
         request_payload = request.get_json(force=True)
+        payload = request_payload["input"]["payload"]
+        try:
+            validate_json_demo_payload(payload)
+        except JsonDemoValidationError as exc:
+            return jsonify(
+                {
+                    "status": "error",
+                    "error": {"code": "INVALID_INPUT", "message": str(exc)},
+                    "meta": {"request_id": request_payload.get("request_id")},
+                }
+            )
+
         image = render_json_demo_image(
-            payload=request_payload["input"]["payload"],
+            payload=payload,
             show_cost=bool(request_payload.get("visualization", {}).get("show_cost", False)),
         )
         buffer = io.BytesIO()

@@ -73,3 +73,48 @@ def test_json_demo_mock_server_render_endpoint_returns_base64_png() -> None:
     assert body["image"]["content_type"] == "image/png"
     assert image.size == (60, 50)
 
+def test_json_demo_mock_server_render_returns_error_for_missing_required_fields() -> None:
+    app = create_json_demo_mock_app()
+    client = app.test_client()
+
+    response = client.post(
+        "/render",
+        json={
+            "input": {"payload": {"group1": [[1, 2]], "map_size": [10, 10]}},
+            "visualization": {"show_cost": False},
+            "request_id": "req-missing",
+        },
+    )
+
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["status"] == "error"
+    assert "group2" in body["error"]["message"]
+
+
+def test_json_demo_mock_server_render_returns_error_for_out_of_bounds_points() -> None:
+    app = create_json_demo_mock_app()
+    client = app.test_client()
+
+    response = client.post(
+        "/render",
+        json={
+            "input": {
+                "payload": {
+                    "group1": [[11, 2]],
+                    "group2": [[3, 4]],
+                    "map_size": [10, 10],
+                }
+            },
+            "visualization": {"show_cost": False},
+            "request_id": "req-oob",
+        },
+    )
+
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["status"] == "error"
+    assert "out of bounds" in body["error"]["message"]
+
