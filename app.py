@@ -5,6 +5,8 @@ from pathlib import Path
 import gradio as gr
 
 from components.json_demo.vis_window import JsonDemoVisWindow
+from components.path_planner_demo.vis_window import PathPlannerDemoVisWindow
+from components.perception_demo.vis_window import PerceptionDemoVisWindow
 from utils.app_context import AppContext, create_app_context
 
 
@@ -21,9 +23,17 @@ def build_app(ctx: AppContext) -> gr.Blocks:
         gr.Markdown(f"# {ctx.config.app.title}")
         with gr.Tabs():
             with gr.Tab("Perception Demo"):
-                gr.Markdown("Perception demo placeholder")
+                PerceptionDemoVisWindow(
+                    window_id="perception_demo",
+                    title="Perception Demo",
+                    server_key="perception",
+                ).build(ctx)
             with gr.Tab("Path Planner Demo"):
-                gr.Markdown("Path planner demo placeholder")
+                PathPlannerDemoVisWindow(
+                    window_id="path_planner_demo",
+                    title="Path Planner Demo",
+                    server_key="path_planner",
+                ).build(ctx)
             with gr.Tab("JSON Demo"):
                 JsonDemoVisWindow(
                     window_id="json_demo",

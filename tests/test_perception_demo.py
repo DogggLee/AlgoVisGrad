@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import gradio as gr
 
 from components.perception_demo.vis_window import (
@@ -8,6 +9,8 @@ from components.perception_demo.vis_window import (
     build_perception_payload,
     preview_perception_request,
     resolve_perception_image_payload,
+    preview_perception_from_inputs,
+    run_perception_render_from_inputs,
 )
 from utils.app_context import AppContext
 from utils.config_utils import AppConfig, AppSettings
@@ -146,7 +149,7 @@ def test_resolve_perception_image_payload_packs_selected_resource(tmp_path) -> N
         ),
         encoding="utf-8",
     )
-    (images_dir / "sample.png").write_bytes(b"fake-png")
+    (images_dir / "sample.png").write_bytes(b"fake-png" * 40)
     ctx = AppContext(
         config=AppConfig(
             app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
@@ -164,4 +167,111 @@ def test_resolve_perception_image_payload_packs_selected_resource(tmp_path) -> N
     assert payload["content_type"] == "image/png"
     assert payload["filename"] == "sample.png"
     assert payload["data"]
+
+def test_preview_perception_from_inputs_resolves_image_and_returns_request_json(tmp_path) -> None:
+    resources_dir = tmp_path / "components" / "perception_demo" / "resources"
+    images_dir = resources_dir / "images"
+    images_dir.mkdir(parents=True)
+    (resources_dir / "manifest.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "sample_image",
+                    "name": "Sample Image",
+                    "preview": "images/sample.png",
+                    "data": "images/sample.png",
+                    "content_type": "image/png",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (images_dir / "sample.png").write_bytes(b"fake-png" * 40)
+    ctx = AppContext(
+        config=AppConfig(
+            app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
+            servers={},
+        ),
+        project_root=tmp_path,
+    )
+
+    request_json = preview_perception_from_inputs(
+        ctx=ctx,
+        selected_image_id="sample_image",
+        uploaded_image_path=None,
+        iou_threshold=0.6,
+        conf_threshold=0.4,
+        show_class_id=True,
+        show_conf=True,
+        request_id="req-preview",
+    )
+
+    assert request_json["input"]["image"]["data"].startswith("<base64 length=")
+    assert request_json["input"]["iou_threshold"] == 0.6
+    assert request_json["visualization"] == {"show_class_id": True, "show_conf": True}
+
+class FakePerceptionRenderClient:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def render_image_response(self, server_key, payload):
+        self.calls.append((server_key, payload))
+        return "image-result", {
+            "status": "success",
+            "image": {"content_type": "image/png", "data": "x" * 200},
+            "meta": {"elapsed_ms": 9},
+        }
+
+
+class FakePerceptionCtx:
+    def __init__(self, project_root):
+        self.project_root = project_root
+        self.render_client = FakePerceptionRenderClient()
+
+    def component_resource_path(self, component_name, *parts):
+        return self.project_root / "components" / component_name / "resources" / Path(*parts)
+
+
+def test_run_perception_render_from_inputs_calls_render_client_and_returns_outputs(tmp_path) -> None:
+    resources_dir = tmp_path / "components" / "perception_demo" / "resources"
+    images_dir = resources_dir / "images"
+    images_dir.mkdir(parents=True)
+    (resources_dir / "manifest.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "sample_image",
+                    "name": "Sample Image",
+                    "preview": "images/sample.png",
+                    "data": "images/sample.png",
+                    "content_type": "image/png",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (images_dir / "sample.png").write_bytes(b"fake-png" * 40)
+    ctx = FakePerceptionCtx(tmp_path)
+
+    image, status, request_json, response_json = run_perception_render_from_inputs(
+        ctx=ctx,
+        server_key="perception",
+        selected_image_id="sample_image",
+        uploaded_image_path=None,
+        iou_threshold=0.6,
+        conf_threshold=0.4,
+        show_class_id=True,
+        show_conf=False,
+        request_id="req-render",
+    )
+
+    assert image == "image-result"
+    assert status == "Success. elapsed_ms=9"
+    assert request_json["input"]["image"]["data"].startswith("<base64 length=")
+    assert response_json["image"]["data"] == "<base64 length=200>"
+    assert ctx.render_client.calls[0][0] == "perception"
+    assert ctx.render_client.calls[0][1]["visualization"] == {
+        "show_class_id": True,
+        "show_conf": False,
+    }
 

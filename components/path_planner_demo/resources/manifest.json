@@ -1,0 +1,10 @@
+[
+  {
+    "id": "warehouse_map",
+    "name": "Warehouse Map",
+    "data": "maps/warehouse.json",
+    "content_type": "array/list",
+    "shape": [6, 8],
+    "dtype": "uint8"
+  }
+]

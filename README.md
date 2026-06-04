@@ -42,6 +42,23 @@ The default config binds `json_demo` to:
 http://127.0.0.1:5003
 ```
 
+## Run All Three Mock Demos
+
+Start all three mock algorithm servers in one terminal:
+
+```bash
+conda activate algo_vis
+./start_mock_demo.sh
+```
+
+This starts:
+
+```text
+perception_demo   http://127.0.0.1:5001
+path_planner_demo http://127.0.0.1:5002
+json_demo         http://127.0.0.1:5003
+```
+
 ## JSON Demo Input
 
 The selected JSON example has this shape:
