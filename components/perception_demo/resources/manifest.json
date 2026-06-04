@@ -1,9 +1,16 @@
 [
   {
-    "id": "sample_image",
-    "name": "Sample Image",
-    "preview": "images/sample.png",
-    "data": "images/sample.png",
-    "content_type": "image/png"
+    "id": "nohat1",
+    "name": "No hardhat person 1",
+    "preview": "images/nohat1.jpg",
+    "data": "images/nohat1.jpg",
+    "content_type": "image/jpeg"
+  },
+  {
+    "id": "nohat2",
+    "name": "No hardhat person 2",
+    "preview": "images/nohat2.jpg",
+    "data": "images/nohat2.jpg",
+    "content_type": "image/jpeg"
   }
 ]

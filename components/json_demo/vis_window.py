@@ -252,6 +252,7 @@ class JsonDemoVisWindow(BaseVisWindow):
         except Exception:
             initial_health = "unknown: not checked"
 
+        # Starter template title row: title, service status, and manual refresh.
         with gr.Row():
             with gr.Column(scale=0, min_width=150):
                 title_text = gr.Markdown(f"## {self.title}")
@@ -265,7 +266,9 @@ class JsonDemoVisWindow(BaseVisWindow):
             examples = []
         example_choices = [(example["name"], example["id"]) for example in examples]
 
+        # Starter template input and render columns: request inputs on the left, render settings and outputs on the right.
         with gr.Row():
+            # Starter template input column: the JSON editor is both the editable workspace and the visible example preview.
             with gr.Column():
                 with gr.Row():
                     example_selector = gr.Dropdown(
@@ -284,21 +287,25 @@ class JsonDemoVisWindow(BaseVisWindow):
                     lines=JSON_DEMO_EDITOR_LINES,
                     interactive=True,
                 )
+            # Starter template render column: visualization controls, result canvas, and request outcome.
             with gr.Column():
                 with gr.Row():
                     show_cost = gr.Checkbox(label="Show Cost", value=True, scale=1)
                 output_image = gr.Image(
                     label="Visualization Result",
                     height=JSON_DEMO_RESULT_HEIGHT,
+                    width=JSON_DEMO_RESULT_HEIGHT,
                 )
                 status_text = gr.Textbox(label="Status / Error", interactive=False)
 
+        # Starter template debug row: request and response payloads stay visible for integration debugging.
         with gr.Tabs():
             with gr.Tab("Request JSON"):
                 request_json = gr.JSON(label="Request JSON")
             with gr.Tab("Response JSON"):
                 response_json = gr.JSON(label="Response JSON")
 
+        # Starter template callback definitions: keep the example-loading and request workflows explicit for copy-and-adapt development.
         def load_selected_example(example_id: str | None) -> str:
             if not example_id:
                 return "{}"
@@ -324,6 +331,7 @@ class JsonDemoVisWindow(BaseVisWindow):
         def refresh_health() -> str:
             return format_json_demo_health_indicator(check_json_demo_health(ctx, self.server_key))
 
+        # Starter template event bindings and returned components: make the starter flow readable without adding extra abstraction layers.
         refresh_health_button.click(
             fn=refresh_health,
             inputs=[],

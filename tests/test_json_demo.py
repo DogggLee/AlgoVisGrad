@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import gradio as gr
 
@@ -55,6 +56,8 @@ def test_json_demo_vis_window_builds_inside_gradio_container(tmp_path) -> None:
         build_result = window.build(ctx)
 
     assert build_result is not None
+    assert build_result["output_image"].height == JSON_DEMO_RESULT_HEIGHT
+    assert build_result["output_image"].width == JSON_DEMO_RESULT_HEIGHT
 
 def test_preview_json_demo_request_returns_summary_and_full_json_text() -> None:
     summary, full_text = preview_json_demo_request(
@@ -88,6 +91,17 @@ def test_json_demo_build_exposes_request_and_response_json_outputs(tmp_path) -> 
     assert "request_json" in components
     assert "response_json" in components
     assert "request_text" not in components
+
+
+def test_json_demo_vis_window_uses_starter_template_comment_skeleton() -> None:
+    source = inspect.getsource(JsonDemoVisWindow.build)
+
+    assert "Starter template title row" in source
+    assert "Starter template input column" in source
+    assert "Starter template render column" in source
+    assert "Starter template debug row" in source
+    assert "Starter template callback definitions" in source
+    assert "Starter template event bindings and returned components" in source
 
 class FakeRenderClient:
     def __init__(self) -> None:
@@ -382,4 +396,3 @@ def test_preview_json_demo_request_returns_error_for_invalid_json_text() -> None
         "request_id": "req-preview-error",
     }
     assert '"status": "error"' in full_text
-

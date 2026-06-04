@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 import gradio as gr
@@ -7,10 +8,13 @@ import gradio as gr
 from components.perception_demo.vis_window import (
     PerceptionDemoVisWindow,
     build_perception_payload,
+    check_perception_demo_health,
+    format_perception_demo_health_indicator,
     preview_perception_request,
     resolve_perception_image_payload,
     preview_perception_from_inputs,
     run_perception_render_from_inputs,
+    PERCEPTION_DEMO_RESULT_SIZE,
 )
 from utils.app_context import AppContext
 from utils.config_utils import AppConfig, AppSettings
@@ -62,11 +66,18 @@ def test_perception_demo_vis_window_builds_inside_gradio_container(tmp_path) -> 
     with gr.Blocks():
         components = window.build(ctx)
 
-    assert components["image_selector"].label == "Image Example"
+    assert components["example_gallery"].label == "Image Examples"
+    assert components["example_gallery"].object_fit == "contain"
+    assert components["example_preview"].label == "Selected Example Preview"
+    assert "title_text" in components
+    assert "health_indicator" in components
+    assert "refresh_health_button" in components
     assert components["iou_threshold"].value == 0.5
     assert components["conf_threshold"].value == 0.35
     assert components["show_class_id"].value is True
     assert components["show_conf"].value is True
+    assert components["output_image"].height == PERCEPTION_DEMO_RESULT_SIZE
+    assert components["output_image"].width == PERCEPTION_DEMO_RESULT_SIZE
     assert "output_image" in components
     assert "request_json" in components
     assert "response_json" in components
@@ -106,7 +117,44 @@ def test_perception_demo_vis_window_loads_image_examples_from_resources(tmp_path
     with gr.Blocks():
         components = window.build(ctx)
 
-    assert components["image_selector"].choices == [("Sample Image", "sample_image")]
+    assert len(components["example_gallery"].value) == 1
+
+
+def test_perception_demo_vis_window_uses_starter_template_comment_skeleton() -> None:
+    source = inspect.getsource(PerceptionDemoVisWindow.build)
+
+    assert "Starter template title row" in source
+    assert "Starter template input column" in source
+    assert "Starter template render column" in source
+    assert "Starter template debug row" in source
+    assert "Starter template callback definitions" in source
+    assert "Starter template event bindings and returned components" in source
+
+
+def test_perception_demo_vis_window_places_upload_before_preview_and_compacts_threshold_controls() -> None:
+    source = inspect.getsource(PerceptionDemoVisWindow.build)
+
+    assert source.index('uploaded_image = gr.Image(label="Upload Image", type="filepath")') < source.index(
+        'example_preview = gr.Image('
+    )
+    assert source.index('iou_threshold = gr.Slider(') < source.index('preview_button = gr.Button("Preview", size="sm", scale=1, min_width=96)')
+    assert source.index('conf_threshold = gr.Slider(') < source.index('render_button = gr.Button("Send", size="sm", variant="primary", scale=1, min_width=96)')
+
+
+def test_format_perception_demo_health_indicator_marks_online_green() -> None:
+    assert format_perception_demo_health_indicator("online: ready") == "🟢 online"
+
+
+def test_check_perception_demo_health_formats_state_and_message() -> None:
+    class FakeHealthClient:
+        def check(self, server_key: str):
+            assert server_key == "perception"
+            return type("Status", (), {"state": "offline", "message": "perception is offline"})()
+
+    class FakeCtx:
+        health_client = FakeHealthClient()
+
+    assert check_perception_demo_health(FakeCtx(), "perception") == "offline: perception is offline"
 
 def test_preview_perception_request_returns_summarized_request_json() -> None:
     summary = preview_perception_request(
@@ -274,4 +322,3 @@ def test_run_perception_render_from_inputs_calls_render_client_and_returns_outpu
         "show_class_id": True,
         "show_conf": False,
     }
-

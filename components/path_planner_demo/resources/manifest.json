@@ -1,10 +1,28 @@
 [
   {
-    "id": "warehouse_map",
-    "name": "Warehouse Map",
-    "data": "maps/warehouse.json",
+    "id": "tiny",
+    "name": "tiny Map",
+    "data": "maps/tiny.json",
     "content_type": "array/list",
     "shape": [6, 8],
+    "dtype": "uint8"
+  },
+
+  {
+    "id": "easy_200x200",
+    "name": "Easy Map 200x200",
+    "data": "maps/easy.npy",
+    "content_type": "array/npy",
+    "shape": [200, 200],
+    "dtype": "uint8"
+  },
+
+  {
+    "id": "hard_200x200",
+    "name": "Hard Map 200x200",
+    "data": "maps/hard.npy",
+    "content_type": "array/npy",
+    "shape": [200, 200],
     "dtype": "uint8"
   }
 ]

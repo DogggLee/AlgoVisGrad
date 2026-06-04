@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 
 import gradio as gr
+import numpy as np
 
 from components.path_planner_demo.vis_window import build_path_planner_payload
 from components.path_planner_demo.vis_window import (
     PathPlannerDemoVisWindow,
+    PATH_PLANNER_DEMO_RESULT_SIZE,
+    check_path_planner_demo_health,
+    format_path_planner_demo_health_indicator,
     get_path_planner_map_dimensions,
     preview_path_planner_from_inputs,
     preview_path_planner_request,
@@ -77,7 +82,12 @@ def test_path_planner_demo_vis_window_builds_inside_gradio_container(tmp_path) -
     with gr.Blocks():
         components = window.build(ctx)
 
-    assert components["map_selector"].label == "Map Example"
+    assert components["example_selector"].label == "Map Example"
+    assert components["map_preview"].label == "Selected Map Preview"
+    assert components["uploaded_map"].label == "Upload Map File"
+    assert "title_text" in components
+    assert "health_indicator" in components
+    assert "refresh_health_button" in components
     assert components["start_x"].value == 0
     assert components["start_y"].value == 0
     assert components["goal_x"].value == 1
@@ -86,6 +96,8 @@ def test_path_planner_demo_vis_window_builds_inside_gradio_container(tmp_path) -
     assert components["show_start"].value is True
     assert components["show_goal"].value is True
     assert components["show_path_cost"].value is True
+    assert components["output_image"].height == PATH_PLANNER_DEMO_RESULT_SIZE
+    assert components["output_image"].width == PATH_PLANNER_DEMO_RESULT_SIZE
     assert "output_image" in components
     assert "request_json" in components
     assert "response_json" in components
@@ -130,13 +142,40 @@ def test_path_planner_demo_vis_window_loads_map_examples_and_slider_maximums(tmp
     with gr.Blocks():
         components = window.build(ctx)
 
-    assert components["map_selector"].choices == [("Warehouse Map", "warehouse_map")]
+    assert components["example_selector"].choices == [("Warehouse Map", "warehouse_map")]
     assert components["start_x"].maximum == 6
     assert components["goal_x"].maximum == 6
     assert components["start_y"].maximum == 4
     assert components["goal_y"].maximum == 4
     assert components["goal_x"].value == 6
     assert components["goal_y"].value == 4
+
+
+def test_path_planner_demo_vis_window_uses_starter_template_comment_skeleton() -> None:
+    source = inspect.getsource(PathPlannerDemoVisWindow.build)
+
+    assert "Starter template title row" in source
+    assert "Starter template input column" in source
+    assert "Starter template render column" in source
+    assert "Starter template debug row" in source
+    assert "Starter template callback definitions" in source
+    assert "Starter template event bindings and returned components" in source
+
+
+def test_format_path_planner_demo_health_indicator_marks_online_green() -> None:
+    assert format_path_planner_demo_health_indicator("online: ready") == "🟢 online"
+
+
+def test_check_path_planner_demo_health_formats_state_and_message() -> None:
+    class FakeHealthClient:
+        def check(self, server_key: str):
+            assert server_key == "path_planner"
+            return type("Status", (), {"state": "offline", "message": "path_planner is offline"})()
+
+    class FakeCtx:
+        health_client = FakeHealthClient()
+
+    assert check_path_planner_demo_health(FakeCtx(), "path_planner") == "offline: path_planner is offline"
 
 
 def test_resolve_path_planner_map_payload_packs_selected_resource(tmp_path) -> None:
@@ -179,6 +218,69 @@ def test_resolve_path_planner_map_payload_packs_selected_resource(tmp_path) -> N
         "dtype": "uint8",
         "data": [[0, 1, 0, 0], [0, 0, 0, 0], [1, 0, 0, 1]],
     }
+
+
+def test_resolve_path_planner_map_payload_packs_selected_npy_resource(tmp_path) -> None:
+    resources_dir = tmp_path / "components" / "path_planner_demo" / "resources"
+    maps_dir = resources_dir / "maps"
+    maps_dir.mkdir(parents=True)
+    (resources_dir / "manifest.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "warehouse_map",
+                    "name": "Warehouse Map",
+                    "data": "maps/warehouse.npy",
+                    "content_type": "array/npy",
+                    "shape": [3, 4],
+                    "dtype": "uint8",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    array = np.array([[0, 1, 0, 0], [0, 0, 0, 0], [1, 0, 0, 1]], dtype=np.uint8)
+    np.save(maps_dir / "warehouse.npy", array)
+    ctx = AppContext(
+        config=AppConfig(
+            app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
+            servers={},
+        ),
+        project_root=tmp_path,
+    )
+
+    payload = resolve_path_planner_map_payload(ctx=ctx, selected_map_id="warehouse_map")
+
+    assert payload["content_type"] == "array/npy"
+    assert payload["filename"] == "warehouse.npy"
+    assert payload["shape"] == [3, 4]
+    assert payload["dtype"] == "uint8"
+    assert payload["data"]
+
+
+def test_resolve_path_planner_map_payload_packs_uploaded_npy_file(tmp_path) -> None:
+    array = np.array([[0, 1, 0, 0], [0, 0, 0, 0], [1, 0, 0, 1]], dtype=np.uint8)
+    uploaded_path = tmp_path / "uploaded_map.npy"
+    np.save(uploaded_path, array)
+    ctx = AppContext(
+        config=AppConfig(
+            app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
+            servers={},
+        ),
+        project_root=tmp_path,
+    )
+
+    payload = resolve_path_planner_map_payload(
+        ctx=ctx,
+        selected_map_id=None,
+        uploaded_map_path=str(uploaded_path),
+    )
+
+    assert payload["content_type"] == "array/npy"
+    assert payload["filename"] == "uploaded_map.npy"
+    assert payload["shape"] == [3, 4]
+    assert payload["dtype"] == "uint8"
+    assert payload["data"]
 
 
 def test_preview_path_planner_request_returns_request_json() -> None:

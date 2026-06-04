@@ -59,6 +59,17 @@ path_planner_demo http://127.0.0.1:5002
 json_demo         http://127.0.0.1:5003
 ```
 
+## Run The Map Drawer
+
+Start the standalone local desktop map drawing tool:
+
+```bash
+conda activate algo_vis
+python map_drawer.py
+```
+
+The tool opens a local window for drawing binary occupancy maps. Free cells use value `0` and painted obstacle cells use value `1`. Large maps remain fully accessible through the scrollable canvas. Left-drag paints obstacles, right-drag erases them, `Clear Obstacles` resets the current drawing, and the mouse wheel zooms the display without changing the underlying grid. You can also add a full obstacle border or randomly sample obstacle cells using one obstacle-ratio parameter before saving as either `json` or `npy`.
+
 ## JSON Demo Input
 
 The selected JSON example has this shape:

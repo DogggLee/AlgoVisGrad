@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import base64
+import json
+from pathlib import Path
 from typing import Any
 
 import gradio as gr
+import numpy as np
+from PIL import Image
 
 from components.base import BaseVisWindow
 from utils.payload_utils import summarize_large_fields
 from utils.resource_utils import load_manifest, pack_resource
+
+
+PATH_PLANNER_DEMO_RESULT_SIZE = 520
 
 
 def load_path_planner_examples(ctx: Any) -> list[dict[str, str]]:
@@ -76,20 +84,57 @@ def build_path_planner_payload(
     }
 
 
-def resolve_path_planner_map_payload(ctx: Any, selected_map_id: str) -> dict[str, Any]:
+def resolve_path_planner_map_payload(
+    ctx: Any,
+    selected_map_id: str | None,
+    uploaded_map_path: str | None = None,
+) -> dict[str, Any]:
     """Resolve the selected path planner map resource into request payload form.
 
     Args:
         ctx: Application context used to resolve path planner resources.
         selected_map_id: Manifest id of the selected map example.
+        uploaded_map_path: Optional filesystem path to an uploaded JSON or NPY map file.
 
     Returns:
         Packed map payload with content_type, filename, shape, dtype, and data.
     """
+    if uploaded_map_path:
+        uploaded_path = Path(uploaded_map_path)
+        return _pack_map_payload_from_path(uploaded_path)
+
     resources_dir = ctx.component_resource_path("path_planner_demo")
     manifest = load_manifest(resources_dir)
     item = next(item for item in manifest if item["id"] == selected_map_id)
-    return pack_resource(resources_dir, item)
+    data_path = resources_dir / str(item["data"])
+    return _pack_map_payload_from_path(data_path)
+
+
+def get_path_planner_map_preview(
+    ctx: Any,
+    selected_map_id: str | None,
+    uploaded_map_path: str | None = None,
+) -> Image.Image | None:
+    """Resolve a visual map preview for the selected or uploaded map payload.
+
+    Args:
+        ctx: Application context used to resolve path planner resources.
+        selected_map_id: Manifest id of the selected map example.
+        uploaded_map_path: Optional filesystem path to an uploaded JSON or NPY map file.
+
+    Returns:
+        PIL image preview of the resolved map data, or None when no map is available.
+    """
+    if uploaded_map_path:
+        return _render_map_preview_image(_load_map_array_from_path(Path(uploaded_map_path)))
+
+    if not selected_map_id:
+        return None
+
+    resources_dir = ctx.component_resource_path("path_planner_demo")
+    manifest = load_manifest(resources_dir)
+    item = next(item for item in manifest if item["id"] == selected_map_id)
+    return _render_map_preview_image(_load_map_array_from_path(resources_dir / str(item["data"])))
 
 
 def get_path_planner_map_dimensions(ctx: Any, selected_map_id: str | None) -> tuple[int, int]:
@@ -108,10 +153,29 @@ def get_path_planner_map_dimensions(ctx: Any, selected_map_id: str | None) -> tu
     resources_dir = ctx.component_resource_path("path_planner_demo")
     manifest = load_manifest(resources_dir)
     item = next(item for item in manifest if item["id"] == selected_map_id)
-    shape = item.get("shape") or [2, 2]
-    height = max(int(shape[0]), 1)
-    width = max(int(shape[1]), 1) if len(shape) > 1 else 2
+    shape = item.get("shape")
+    if shape:
+        height = max(int(shape[0]), 1)
+        width = max(int(shape[1]), 1) if len(shape) > 1 else 2
+        return width, height
+    data = _load_map_array_from_path(resources_dir / str(item["data"]))
+    height, width = data.shape[:2]
     return width, height
+
+
+def get_uploaded_path_planner_map_dimensions(uploaded_map_path: str | None) -> tuple[int, int]:
+    """Read uploaded map width and height from a JSON file.
+
+    Args:
+        uploaded_map_path: Optional filesystem path to an uploaded JSON or NPY map file.
+
+    Returns:
+        Tuple of `(width, height)` for slider range calculation.
+    """
+    if not uploaded_map_path:
+        return 2, 2
+    data = _load_map_array_from_path(Path(uploaded_map_path))
+    return max(int(data.shape[1]), 1), max(int(data.shape[0]), 1)
 
 
 def preview_path_planner_request(
@@ -168,7 +232,7 @@ def preview_path_planner_request(
 
 def preview_path_planner_from_inputs(
     ctx: Any,
-    selected_map_id: str,
+    selected_map_id: str | None,
     start_x: int,
     start_y: int,
     goal_x: int,
@@ -180,12 +244,14 @@ def preview_path_planner_from_inputs(
     show_candidate_paths: bool,
     show_inflation_area: bool,
     request_id: str,
+    uploaded_map_path: str | None = None,
 ) -> dict[str, Any]:
     """Build path planner request preview from UI input values.
 
     Args:
         ctx: Application context used to resolve map resources.
         selected_map_id: Manifest id of the selected map example.
+        uploaded_map_path: Optional filesystem path to an uploaded JSON or NPY map file.
         start_x: Start point horizontal coordinate.
         start_y: Start point vertical coordinate.
         goal_x: Goal point horizontal coordinate.
@@ -201,7 +267,11 @@ def preview_path_planner_from_inputs(
     Returns:
         Summarized render request payload for Request JSON display.
     """
-    map_payload = resolve_path_planner_map_payload(ctx=ctx, selected_map_id=selected_map_id)
+    map_payload = resolve_path_planner_map_payload(
+        ctx=ctx,
+        selected_map_id=selected_map_id,
+        uploaded_map_path=uploaded_map_path,
+    )
     return preview_path_planner_request(
         map_payload=map_payload,
         start_x=start_x,
@@ -221,7 +291,7 @@ def preview_path_planner_from_inputs(
 def run_path_planner_render_from_inputs(
     ctx: Any,
     server_key: str,
-    selected_map_id: str,
+    selected_map_id: str | None,
     start_x: int,
     start_y: int,
     goal_x: int,
@@ -233,6 +303,7 @@ def run_path_planner_render_from_inputs(
     show_candidate_paths: bool,
     show_inflation_area: bool,
     request_id: str,
+    uploaded_map_path: str | None = None,
 ) -> tuple[Any, str, dict[str, Any], dict[str, Any]]:
     """Send a path planner render request from UI input values.
 
@@ -240,6 +311,7 @@ def run_path_planner_render_from_inputs(
         ctx: Application context with render client and resource helpers.
         server_key: Config key identifying the bound path planner server.
         selected_map_id: Manifest id of the selected map example.
+        uploaded_map_path: Optional filesystem path to an uploaded JSON or NPY map file.
         start_x: Start point horizontal coordinate.
         start_y: Start point vertical coordinate.
         goal_x: Goal point horizontal coordinate.
@@ -255,7 +327,11 @@ def run_path_planner_render_from_inputs(
     Returns:
         Tuple of image result, status text, request JSON, and response JSON.
     """
-    map_payload = resolve_path_planner_map_payload(ctx=ctx, selected_map_id=selected_map_id)
+    map_payload = resolve_path_planner_map_payload(
+        ctx=ctx,
+        selected_map_id=selected_map_id,
+        uploaded_map_path=uploaded_map_path,
+    )
     payload = build_path_planner_payload(
         map_payload=map_payload,
         start_x=start_x,
@@ -290,6 +366,34 @@ def run_path_planner_render_from_inputs(
     return image, status, request_json, response_json
 
 
+def format_path_planner_demo_health_indicator(status_text: str) -> str:
+    """Format path planner server status as a Gradio Markdown indicator.
+
+    Args:
+        status_text: Human-readable health status text starting with a state name.
+
+    Returns:
+        Markdown text with green or red circle status indicator.
+    """
+    state = status_text.split(":", 1)[0].strip() or "unknown"
+    indicator = "🟢" if state == "online" else "🔴"
+    return f"{indicator} {state}"
+
+
+def check_path_planner_demo_health(ctx: Any, server_key: str) -> str:
+    """Check the bound path planner server and format status for display.
+
+    Args:
+        ctx: Application context containing a health_client.
+        server_key: Config key identifying the bound algorithm server.
+
+    Returns:
+        Human-readable status text in `state: message` format.
+    """
+    status = ctx.health_client.check(server_key)
+    return f"{status.state}: {status.message}"
+
+
 def build_path_planner_slider_updates(
     ctx: Any,
     selected_map_id: str | None,
@@ -316,6 +420,92 @@ def build_path_planner_slider_updates(
     )
 
 
+def build_uploaded_path_planner_slider_updates(
+    uploaded_map_path: str | None,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Build slider updates derived from an uploaded map file.
+
+    Args:
+        uploaded_map_path: Optional filesystem path to an uploaded JSON or NPY map file.
+
+    Returns:
+        Four Gradio update dictionaries for `start_x`, `start_y`, `goal_x`, and `goal_y`.
+    """
+    width, height = get_uploaded_path_planner_map_dimensions(uploaded_map_path)
+    max_x = max(width - 1, 0)
+    max_y = max(height - 1, 0)
+    return (
+        gr.update(maximum=max_x, value=0),
+        gr.update(maximum=max_y, value=0),
+        gr.update(maximum=max_x, value=max_x),
+        gr.update(maximum=max_y, value=max_y),
+    )
+
+
+def _load_map_array_from_path(path: Path) -> np.ndarray:
+    """Load one map file into a 2D `uint8` array.
+
+    Args:
+        path: Filesystem path to one `.json` or `.npy` map file.
+
+    Returns:
+        2D `uint8` map array.
+    """
+    if path.suffix.lower() == ".npy":
+        return np.asarray(np.load(path), dtype=np.uint8)
+    return np.asarray(json.loads(path.read_text(encoding="utf-8")), dtype=np.uint8)
+
+
+def _pack_map_payload_from_path(path: Path) -> dict[str, Any]:
+    """Pack one local map file into the standard request payload shape.
+
+    Args:
+        path: Filesystem path to one `.json` or `.npy` map file.
+
+    Returns:
+        Request payload fragment for `array/list` or `array/npy` content.
+    """
+    array = _load_map_array_from_path(path)
+    if path.suffix.lower() == ".npy":
+        return {
+            "content_type": "array/npy",
+            "filename": path.name,
+            "shape": list(array.shape),
+            "dtype": str(array.dtype),
+            "data": base64.b64encode(path.read_bytes()).decode("ascii"),
+        }
+    return {
+        "content_type": "array/list",
+        "filename": path.name,
+        "shape": list(array.shape),
+        "dtype": str(array.dtype),
+        "data": array.tolist(),
+    }
+
+
+def _render_map_preview_image(data: np.ndarray) -> Image.Image:
+    """Render map data into a simple visual preview image.
+
+    Args:
+        data: 2D map array where non-zero values are obstacles.
+
+    Returns:
+        PIL preview image scaled for human inspection.
+    """
+    height = max(int(data.shape[0]), 1)
+    width = max(int(data.shape[1]), 1)
+    base_image = Image.new("RGB", (width, height), color=(255, 255, 255))
+
+    for y in range(height):
+        for x in range(width):
+            if int(data[y, x]):
+                base_image.putpixel((x, y), (55, 55, 55))
+
+    preview_size = 240
+    scale = max(preview_size // max(width, height), 1)
+    return base_image.resize((width * scale, height * scale), Image.Resampling.NEAREST)
+
+
 class PathPlannerDemoVisWindow(BaseVisWindow):
     """Embeddable Gradio visualization window for path planner rendering.
 
@@ -334,25 +524,52 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
         Returns:
             Dictionary of important Gradio components created by this window.
         """
-        gr.Markdown(f"## {self.title}")
+        try:
+            initial_health = check_path_planner_demo_health(ctx, self.server_key)
+        except Exception:
+            initial_health = "unknown: not checked"
+
         try:
             examples = load_path_planner_examples(ctx)
         except (FileNotFoundError, KeyError):
             examples = []
 
-        example_choices = [(example["name"], example["id"]) for example in examples]
         initial_map_id = examples[0]["id"] if examples else None
+        initial_map_preview = get_path_planner_map_preview(ctx, initial_map_id)
         initial_width, initial_height = get_path_planner_map_dimensions(ctx, initial_map_id)
         initial_max_x = max(initial_width - 1, 0)
         initial_max_y = max(initial_height - 1, 0)
 
+        # Starter template title row: title, service status, and manual refresh.
         with gr.Row():
+            with gr.Column(scale=0, min_width=190):
+                title_text = gr.Markdown(f"## {self.title}")
+            with gr.Column(scale=0, min_width=90):
+                health_indicator = gr.Markdown(format_path_planner_demo_health_indicator(initial_health))
+            with gr.Column(scale=0, min_width=48):
+                refresh_health_button = gr.Button("↻", size="sm", min_width=48)
+
+        selected_map_id = gr.State(initial_map_id)
+
+        # Starter template input and render columns: request inputs on the left, render settings and outputs on the right.
+        with gr.Row():
+            # Starter template input column: built-in examples stay visible, upload is only a supplemental input path.
             with gr.Column():
-                map_selector = gr.Dropdown(
+                example_selector = gr.Dropdown(
                     label="Map Example",
-                    choices=example_choices,
+                    choices=[(example["name"], example["id"]) for example in examples],
                     value=initial_map_id,
                     interactive=True,
+                )
+                map_preview = gr.Image(
+                    label="Selected Map Preview",
+                    value=initial_map_preview,
+                    interactive=False,
+                )
+                uploaded_map = gr.File(
+                    label="Upload Map File",
+                    file_types=[".json", ".npy"],
+                    type="filepath",
                 )
                 with gr.Row():
                     start_x = gr.Slider(label="Start X", minimum=0, maximum=initial_max_x, value=0, step=1)
@@ -381,6 +598,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                 )
                 preview_button = gr.Button("Preview", size="sm")
                 render_button = gr.Button("Send", size="sm", variant="primary")
+            # Starter template render column: visualization controls, result canvas, and request outcome.
             with gr.Column():
                 with gr.Row():
                     show_start = gr.Checkbox(label="Show Start", value=True)
@@ -390,17 +608,39 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                     show_candidate_paths = gr.Checkbox(label="Show Candidate Paths", value=False)
                 with gr.Row():
                     show_inflation_area = gr.Checkbox(label="Show Inflation Area", value=False)
-                output_image = gr.Image(label="Visualization Result")
+                output_image = gr.Image(
+                    label="Visualization Result",
+                    height=PATH_PLANNER_DEMO_RESULT_SIZE,
+                    width=PATH_PLANNER_DEMO_RESULT_SIZE,
+                )
                 status_text = gr.Textbox(label="Status / Error", interactive=False)
 
+        # Starter template debug row: request and response payloads stay visible for integration debugging.
         with gr.Tabs():
             with gr.Tab("Request JSON"):
                 request_json = gr.JSON(label="Request JSON")
             with gr.Tab("Response JSON"):
                 response_json = gr.JSON(label="Response JSON")
 
+        # Starter template callback definitions: keep map selection, preview, and request workflows readable for copy-and-adapt development.
+        def select_example(selected_map_value: str | None) -> tuple[str | None, Image.Image | None, dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+            if not selected_map_value:
+                return None, None, *build_path_planner_slider_updates(ctx, None)
+            return (
+                selected_map_value,
+                get_path_planner_map_preview(ctx, selected_map_value),
+                *build_path_planner_slider_updates(ctx, selected_map_value),
+            )
+
+        def preview_uploaded_map(uploaded_map_path: str | None) -> tuple[Image.Image | None, dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+            return (
+                get_path_planner_map_preview(ctx, None, uploaded_map_path=uploaded_map_path),
+                *build_uploaded_path_planner_slider_updates(uploaded_map_path),
+            )
+
         def preview_request(
-            selected_map_value: str,
+            selected_map_value: str | None,
+            uploaded_map_path: str | None,
             start_x_value: int,
             start_y_value: int,
             goal_x_value: int,
@@ -415,6 +655,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
             return preview_path_planner_from_inputs(
                 ctx=ctx,
                 selected_map_id=selected_map_value,
+                uploaded_map_path=uploaded_map_path,
                 start_x=start_x_value,
                 start_y=start_y_value,
                 goal_x=goal_x_value,
@@ -429,7 +670,8 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
             )
 
         def send_render(
-            selected_map_value: str,
+            selected_map_value: str | None,
+            uploaded_map_path: str | None,
             start_x_value: int,
             start_y_value: int,
             goal_x_value: int,
@@ -445,6 +687,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                 ctx=ctx,
                 server_key=self.server_key,
                 selected_map_id=selected_map_value,
+                uploaded_map_path=uploaded_map_path,
                 start_x=start_x_value,
                 start_y=start_y_value,
                 goal_x=goal_x_value,
@@ -458,15 +701,30 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                 request_id=f"{self.window_id}-render",
             )
 
-        map_selector.change(
-            fn=lambda selected_map_value: build_path_planner_slider_updates(ctx, selected_map_value),
-            inputs=[map_selector],
-            outputs=[start_x, start_y, goal_x, goal_y],
+        def refresh_health() -> str:
+            return format_path_planner_demo_health_indicator(check_path_planner_demo_health(ctx, self.server_key))
+
+        # Starter template event bindings and returned components: keep the starter flow explicit instead of hiding it behind extra abstraction.
+        refresh_health_button.click(
+            fn=refresh_health,
+            inputs=[],
+            outputs=[health_indicator],
+        )
+        example_selector.change(
+            fn=select_example,
+            inputs=[example_selector],
+            outputs=[selected_map_id, map_preview, start_x, start_y, goal_x, goal_y],
+        )
+        uploaded_map.change(
+            fn=preview_uploaded_map,
+            inputs=[uploaded_map],
+            outputs=[map_preview, start_x, start_y, goal_x, goal_y],
         )
         preview_button.click(
             fn=preview_request,
             inputs=[
-                map_selector,
+                selected_map_id,
+                uploaded_map,
                 start_x,
                 start_y,
                 goal_x,
@@ -483,7 +741,8 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
         render_button.click(
             fn=send_render,
             inputs=[
-                map_selector,
+                selected_map_id,
+                uploaded_map,
                 start_x,
                 start_y,
                 goal_x,
@@ -499,7 +758,13 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
         )
 
         return {
-            "map_selector": map_selector,
+            "title_text": title_text,
+            "health_indicator": health_indicator,
+            "refresh_health_button": refresh_health_button,
+            "example_selector": example_selector,
+            "map_preview": map_preview,
+            "selected_map_id": selected_map_id,
+            "uploaded_map": uploaded_map,
             "start_x": start_x,
             "start_y": start_y,
             "goal_x": goal_x,

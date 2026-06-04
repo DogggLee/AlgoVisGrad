@@ -54,19 +54,19 @@
 - [x] Handle invalid editable JSON input in JsonDemo preview and render flows.
 - [x] Add `PerceptionDemoVisWindow` minimal Gradio UI.
 - [x] Add perception demo request preview helper.
-- [ ] Wire perception demo preview and render buttons.
-- [ ] Add `PathPlannerDemoVisWindow` minimal Gradio UI.
-- [ ] Add path planner request preview helper.
-- [ ] Wire path planner preview and render buttons.
-- [ ] Add path planner coordinate sliders.
-- [ ] Update path planner coordinate slider maximums from selected map shape.
+- [x] Wire perception demo preview and render buttons.
+- [x] Add `PathPlannerDemoVisWindow` minimal Gradio UI.
+- [x] Add path planner request preview helper.
+- [x] Wire path planner preview and render buttons.
+- [x] Add path planner coordinate sliders.
+- [x] Update path planner coordinate slider maximums from selected map shape.
 
 ## Resources
 
 - [x] Create `components/perception_demo/resources/manifest.json`.
 - [x] Add minimal perception demo image resources.
-- [ ] Create `components/path_planner_demo/resources/manifest.json`.
-- [ ] Add minimal path planner map resources.
+- [x] Create `components/path_planner_demo/resources/manifest.json`.
+- [x] Add minimal path planner map resources.
 - [x] Create `components/json_demo/resources/manifest.json`.
 - [x] Add minimal JSON demo input resources if useful.
 
@@ -83,8 +83,30 @@
 
 - [x] Add `.gitignore` for Python cache, pytest cache, local env files, and generated outputs.
 - [x] Move duplicated test HTTP server helpers into test utilities.
-- [ ] Consider extracting shared request preview/render button patterns after all three demos exist.
-- [ ] Consider adding lightweight app smoke test for each demo tab once real windows are wired.
+- [x] Consider extracting shared request preview/render button patterns after all three demos exist.
+- [x] Consider adding lightweight app smoke test for each demo tab once real windows are wired.
+
+## Starter Template Alignment
+
+- [x] Align `PerceptionDemoVisWindow` to the `Starter VisWindow Layout Convention`.
+- [x] Add unified title row to `PerceptionDemoVisWindow`: title + server status indicator + refresh button.
+- [x] Replace `PerceptionDemoVisWindow` example dropdown with gallery/thumbnail-style example selection.
+- [x] Add persistent example preview workflow to `PerceptionDemoVisWindow` input column.
+- [x] Keep upload as a supplemental input path in `PerceptionDemoVisWindow`, not a replacement for built-in examples.
+- [x] Restrict `PerceptionDemoVisWindow` render column to visualization controls, result image, and status output.
+- [x] Make `PerceptionDemoVisWindow` `Visualization Result` a square display region with explicit size.
+- [x] Add fixed segmented starter-template comments to `PerceptionDemoVisWindow.build(...)`: title row, input column, render column, debug row, callbacks, and event bindings/returned components.
+- [x] Align `JsonDemoVisWindow` to the `Starter VisWindow Layout Convention`.
+- [x] Preserve `JsonDemoVisWindow` editor-driven example workflow, where `Input JSON` serves as both editable workspace and example preview.
+- [x] Make `JsonDemoVisWindow` `Visualization Result` a square display region with explicit size.
+- [x] Add fixed segmented starter-template comments to `JsonDemoVisWindow.build(...)`: title row, input column, render column, debug row, callbacks, and event bindings/returned components.
+- [x] Align `PathPlannerDemoVisWindow` to the `Starter VisWindow Layout Convention` after `PerceptionDemoVisWindow` and `JsonDemoVisWindow` are aligned.
+- [x] Add unified title row to `PathPlannerDemoVisWindow`: title + server status indicator + refresh button.
+- [x] Replace `PathPlannerDemoVisWindow` map dropdown with gallery/thumbnail-style example selection.
+- [x] Add persistent visual map preview to `PathPlannerDemoVisWindow` while keeping the selected payload as map data.
+- [x] Keep upload as a supplemental input path in `PathPlannerDemoVisWindow`, not a replacement for built-in examples.
+- [x] Make `PathPlannerDemoVisWindow` `Visualization Result` a square display region with explicit size.
+- [x] Add fixed segmented starter-template comments to `PathPlannerDemoVisWindow.build(...)`: title row, input column, render column, debug row, callbacks, and event bindings/returned components.
 
 ## Backlog
 

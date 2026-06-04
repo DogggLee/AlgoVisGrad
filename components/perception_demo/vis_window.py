@@ -10,6 +10,9 @@ from utils.payload_utils import summarize_large_fields
 from utils.resource_utils import load_manifest, pack_resource
 
 
+PERCEPTION_DEMO_RESULT_SIZE = 520
+
+
 def load_perception_examples(ctx: Any) -> list[dict[str, str]]:
     """Load selectable perception image example metadata from resources.
 
@@ -24,6 +27,41 @@ def load_perception_examples(ctx: Any) -> list[dict[str, str]]:
         {"id": str(item["id"]), "name": str(item["name"])}
         for item in load_manifest(resources_dir)
     ]
+
+
+def load_perception_example_gallery(ctx: Any) -> list[tuple[str, str]]:
+    """Load perception example preview images for gallery-style selection.
+
+    Args:
+        ctx: Application context used to resolve the perception resources path.
+
+    Returns:
+        List of `(preview_path, caption)` tuples for a Gradio gallery.
+    """
+    resources_dir = ctx.component_resource_path("perception_demo")
+    return [
+        (str(resources_dir / str(item.get("preview", item["data"]))), str(item["name"]))
+        for item in load_manifest(resources_dir)
+    ]
+
+
+def get_perception_example_preview(ctx: Any, selected_image_id: str | None) -> str | None:
+    """Resolve the preview image path for one selected perception example.
+
+    Args:
+        ctx: Application context used to resolve the perception resources path.
+        selected_image_id: Manifest id of the selected image example.
+
+    Returns:
+        Filesystem path to the preview image, or None when no example is selected.
+    """
+    if not selected_image_id:
+        return None
+
+    resources_dir = ctx.component_resource_path("perception_demo")
+    manifest = load_manifest(resources_dir)
+    item = next(item for item in manifest if item["id"] == selected_image_id)
+    return str(resources_dir / str(item.get("preview", item["data"])))
 
 
 def build_perception_payload(
@@ -167,6 +205,34 @@ def preview_perception_from_inputs(
     )
 
 
+def format_perception_demo_health_indicator(status_text: str) -> str:
+    """Format perception server status as a Gradio Markdown indicator.
+
+    Args:
+        status_text: Human-readable health status text starting with a state name.
+
+    Returns:
+        Markdown text with green or red circle status indicator.
+    """
+    state = status_text.split(":", 1)[0].strip() or "unknown"
+    indicator = "🟢" if state == "online" else "🔴"
+    return f"{indicator} {state}"
+
+
+def check_perception_demo_health(ctx: Any, server_key: str) -> str:
+    """Check the bound perception server and format status for display.
+
+    Args:
+        ctx: Application context containing a health_client.
+        server_key: Config key identifying the bound algorithm server.
+
+    Returns:
+        Human-readable status text in `state: message` format.
+    """
+    status = ctx.health_client.check(server_key)
+    return f"{status.state}: {status.message}"
+
+
 def run_perception_render_from_inputs(
     ctx: Any,
     server_key: str,
@@ -245,45 +311,89 @@ class PerceptionDemoVisWindow(BaseVisWindow):
         Returns:
             Dictionary of important Gradio components created by this window.
         """
-        gr.Markdown(f"## {self.title}")
+        try:
+            initial_health = check_perception_demo_health(ctx, self.server_key)
+        except Exception:
+            initial_health = "unknown: not checked"
+
         try:
             examples = load_perception_examples(ctx)
+            example_gallery_values = load_perception_example_gallery(ctx)
         except (FileNotFoundError, KeyError):
             examples = []
-        example_choices = [(example["name"], example["id"]) for example in examples]
+            example_gallery_values = []
+        initial_example_id = examples[0]["id"] if examples else None
+        initial_example_preview = get_perception_example_preview(ctx, initial_example_id) if initial_example_id else None
 
+        # Starter template title row: title, service status, and manual refresh.
         with gr.Row():
+            with gr.Column(scale=0, min_width=170):
+                title_text = gr.Markdown(f"## {self.title}")
+            with gr.Column(scale=0, min_width=90):
+                health_indicator = gr.Markdown(format_perception_demo_health_indicator(initial_health))
+            with gr.Column(scale=0, min_width=48):
+                refresh_health_button = gr.Button("↻", size="sm", min_width=48)
+
+        selected_image_id = gr.State(initial_example_id)
+
+        # Starter template input and render columns: request inputs on the left, render settings and outputs on the right.
+        with gr.Row():
+            # Starter template input column: built-in examples stay visible, upload is only a supplemental input path.
             with gr.Column():
-                image_selector = gr.Dropdown(
-                    label="Image Example",
-                    choices=example_choices,
-                    value=None,
-                    interactive=True,
+                example_gallery = gr.Gallery(
+                    label="Image Examples",
+                    value=example_gallery_values,
+                    columns=3,
+                    height=180,
+                    allow_preview=False,
+                    preview=False,
+                    selected_index=0 if example_gallery_values else None,
+                    object_fit="contain",
                 )
                 uploaded_image = gr.Image(label="Upload Image", type="filepath")
-                iou_threshold = gr.Slider(
-                    label="IoU Threshold", minimum=0.0, maximum=1.0, value=0.5, step=0.01
+                example_preview = gr.Image(
+                    label="Selected Example Preview",
+                    value=initial_example_preview,
+                    type="filepath",
+                    interactive=False,
                 )
-                conf_threshold = gr.Slider(
-                    label="Confidence Threshold", minimum=0.0, maximum=1.0, value=0.35, step=0.01
-                )
-                preview_button = gr.Button("Preview", size="sm")
-                render_button = gr.Button("Send", size="sm", variant="primary")
+                with gr.Row():
+                    iou_threshold = gr.Slider(
+                        label="IoU Threshold", minimum=0.0, maximum=1.0, value=0.5, step=0.01, scale=3
+                    )
+                    conf_threshold = gr.Slider(
+                        label="Confidence Threshold", minimum=0.0, maximum=1.0, value=0.35, step=0.01, scale=3
+                    )
+                    preview_button = gr.Button("Preview", size="sm", scale=1, min_width=96)
+                    render_button = gr.Button("Send", size="sm", variant="primary", scale=1, min_width=96)
+            # Starter template render column: visualization controls, result canvas, and request outcome.
             with gr.Column():
                 with gr.Row():
                     show_class_id = gr.Checkbox(label="Show Class ID", value=True)
                     show_conf = gr.Checkbox(label="Show Confidence", value=True)
-                output_image = gr.Image(label="Visualization Result")
+                output_image = gr.Image(
+                    label="Visualization Result",
+                    height=PERCEPTION_DEMO_RESULT_SIZE,
+                    width=PERCEPTION_DEMO_RESULT_SIZE,
+                )
                 status_text = gr.Textbox(label="Status / Error", interactive=False)
 
+        # Starter template debug row: request and response payloads stay visible for integration debugging.
         with gr.Tabs():
             with gr.Tab("Request JSON"):
                 request_json = gr.JSON(label="Request JSON")
             with gr.Tab("Response JSON"):
                 response_json = gr.JSON(label="Response JSON")
 
+        # Starter template callback definitions: keep resource resolution and request workflows readable for copy-and-adapt development.
+        def select_example(evt: gr.SelectData) -> tuple[str | None, str | None]:
+            if evt.index is None or evt.index < 0 or evt.index >= len(examples):
+                return None, None
+            example_id = examples[evt.index]["id"]
+            return example_id, get_perception_example_preview(ctx, example_id)
+
         def preview_request(
-            selected_image_id: str | None,
+            selected_image_id_value: str | None,
             uploaded_image_path: str | None,
             iou_value: float,
             conf_value: float,
@@ -292,7 +402,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
         ) -> dict[str, Any]:
             return preview_perception_from_inputs(
                 ctx=ctx,
-                selected_image_id=selected_image_id,
+                selected_image_id=selected_image_id_value,
                 uploaded_image_path=uploaded_image_path,
                 iou_threshold=iou_value,
                 conf_threshold=conf_value,
@@ -302,7 +412,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
             )
 
         def send_render(
-            selected_image_id: str | None,
+            selected_image_id_value: str | None,
             uploaded_image_path: str | None,
             iou_value: float,
             conf_value: float,
@@ -312,7 +422,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
             return run_perception_render_from_inputs(
                 ctx=ctx,
                 server_key=self.server_key,
-                selected_image_id=selected_image_id,
+                selected_image_id=selected_image_id_value,
                 uploaded_image_path=uploaded_image_path,
                 iou_threshold=iou_value,
                 conf_threshold=conf_value,
@@ -321,10 +431,24 @@ class PerceptionDemoVisWindow(BaseVisWindow):
                 request_id=f"{self.window_id}-render",
             )
 
+        def refresh_health() -> str:
+            return format_perception_demo_health_indicator(check_perception_demo_health(ctx, self.server_key))
+
+        # Starter template event bindings and returned components: keep the starter flow explicit instead of hiding it behind extra abstraction.
+        refresh_health_button.click(
+            fn=refresh_health,
+            inputs=[],
+            outputs=[health_indicator],
+        )
+        example_gallery.select(
+            fn=select_example,
+            inputs=[],
+            outputs=[selected_image_id, example_preview],
+        )
         preview_button.click(
             fn=preview_request,
             inputs=[
-                image_selector,
+                selected_image_id,
                 uploaded_image,
                 iou_threshold,
                 conf_threshold,
@@ -336,7 +460,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
         render_button.click(
             fn=send_render,
             inputs=[
-                image_selector,
+                selected_image_id,
                 uploaded_image,
                 iou_threshold,
                 conf_threshold,
@@ -347,7 +471,12 @@ class PerceptionDemoVisWindow(BaseVisWindow):
         )
 
         return {
-            "image_selector": image_selector,
+            "title_text": title_text,
+            "health_indicator": health_indicator,
+            "refresh_health_button": refresh_health_button,
+            "example_gallery": example_gallery,
+            "example_preview": example_preview,
+            "selected_image_id": selected_image_id,
             "uploaded_image": uploaded_image,
             "iou_threshold": iou_threshold,
             "conf_threshold": conf_threshold,
@@ -360,4 +489,3 @@ class PerceptionDemoVisWindow(BaseVisWindow):
             "request_json": request_json,
             "response_json": response_json,
         }
-
