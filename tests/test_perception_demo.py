@@ -14,7 +14,6 @@ from components.perception_demo.vis_window import (
     resolve_perception_image_payload,
     preview_perception_from_inputs,
     run_perception_render_from_inputs,
-    PERCEPTION_DEMO_RESULT_SIZE,
 )
 from utils.app_context import AppContext
 from utils.config_utils import AppConfig, AppSettings
@@ -67,9 +66,8 @@ def test_perception_demo_vis_window_builds_inside_gradio_container(tmp_path) -> 
         components = window.build(ctx)
 
     assert components["example_gallery"].label == "Image Examples"
-    assert components["example_gallery"].object_fit == "contain"
-    assert components["example_preview"].label == "Selected Example Preview"
-    assert components["example_preview"].elem_id == "perception-example-preview"
+    assert components["example_gallery"].object_fit == "scale-down"
+    assert "example_preview" not in components
     assert "title_text" in components
     assert "health_indicator" in components
     assert "refresh_health_button" in components
@@ -131,12 +129,10 @@ def test_perception_demo_vis_window_uses_starter_template_comment_skeleton() -> 
     assert "Starter template event bindings and returned components" in source
 
 
-def test_perception_demo_vis_window_places_upload_before_preview_and_compacts_threshold_controls() -> None:
+def test_perception_demo_vis_window_compacts_threshold_controls() -> None:
     source = inspect.getsource(PerceptionDemoVisWindow.build)
 
-    assert source.index('uploaded_image = gr.Image(label="Upload Image", type="filepath")') < source.index(
-        'example_preview = gr.Image('
-    )
+    assert 'example_preview = gr.Image(' not in source
     assert source.index('iou_threshold = gr.Slider(') < source.index('preview_button = gr.Button("Preview", size="sm", scale=1, min_width=96)')
     assert source.index('conf_threshold = gr.Slider(') < source.index('render_button = gr.Button("Send", size="sm", variant="primary", scale=1, min_width=96)')
 

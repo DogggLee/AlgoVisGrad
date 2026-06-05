@@ -9,6 +9,32 @@
   },
 
   {
+    "id": "50_10p",
+    "name": "10% Obs 50x50",
+    "data": "maps/50_10p.npy",
+    "content_type": "array/npy",
+    "shape": [50, 50],
+    "dtype": "uint8"
+  },
+  {
+    "id": "50_20p",
+    "name": "20% Obs 50x50",
+    "data": "maps/50_20p.npy",
+    "content_type": "array/npy",
+    "shape": [50, 50],
+    "dtype": "uint8"
+  },
+  {
+    "id": "50_30p",
+    "name": "30% Obs 50x50",
+    "data": "maps/50_30p.npy",
+    "content_type": "array/npy",
+    "shape": [50, 50],
+    "dtype": "uint8"
+  },
+  
+  
+  {
     "id": "easy_200x200",
     "name": "Easy Map 200x200",
     "data": "maps/easy.npy",

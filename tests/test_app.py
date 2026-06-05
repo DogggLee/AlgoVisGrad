@@ -106,7 +106,9 @@ def test_build_app_adds_responsive_square_preview_css(tmp_path) -> None:
 
     build_app(ctx)
 
-    assert "#path-planner-map-preview" in RESPONSIVE_SQUARE_MEDIA_CSS
     assert "#json-demo-output-image" in RESPONSIVE_SQUARE_MEDIA_CSS
+    assert ".image-container" in RESPONSIVE_SQUARE_MEDIA_CSS
+    assert "display: block;" in RESPONSIVE_SQUARE_MEDIA_CSS
     assert "width: 100% !important;" in RESPONSIVE_SQUARE_MEDIA_CSS
     assert "aspect-ratio: 1 / 1" in RESPONSIVE_SQUARE_MEDIA_CSS
+    assert "#path-planner-map-preview" not in RESPONSIVE_SQUARE_MEDIA_CSS

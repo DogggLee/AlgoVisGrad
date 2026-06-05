@@ -6,6 +6,7 @@ from pathlib import Path
 
 import gradio as gr
 import numpy as np
+from PIL import Image
 
 from components.path_planner_demo.vis_window import build_path_planner_payload
 from components.path_planner_demo.vis_window import (
@@ -14,6 +15,7 @@ from components.path_planner_demo.vis_window import (
     check_path_planner_demo_health,
     format_path_planner_demo_health_indicator,
     get_path_planner_map_dimensions,
+    get_path_planner_map_preview,
     preview_path_planner_from_inputs,
     preview_path_planner_request,
     resolve_path_planner_map_payload,
@@ -101,6 +103,54 @@ def test_path_planner_demo_vis_window_builds_inside_gradio_container(tmp_path) -
     assert "output_image" in components
     assert "request_json" in components
     assert "response_json" in components
+
+
+def test_get_path_planner_map_preview_draws_start_and_goal_markers(tmp_path) -> None:
+    resources_dir = tmp_path / "components" / "path_planner_demo" / "resources"
+    maps_dir = resources_dir / "maps"
+    maps_dir.mkdir(parents=True)
+    (resources_dir / "manifest.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "warehouse_map",
+                    "name": "Warehouse Map",
+                    "data": "maps/warehouse.json",
+                    "content_type": "array/list",
+                    "shape": [2, 3],
+                    "dtype": "uint8",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (maps_dir / "warehouse.json").write_text(
+        json.dumps([[0, 0, 0], [0, 0, 0]]),
+        encoding="utf-8",
+    )
+    ctx = AppContext(
+        config=AppConfig(
+            app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
+            servers={},
+        ),
+        project_root=tmp_path,
+    )
+
+    preview = get_path_planner_map_preview(
+        ctx,
+        selected_map_id="warehouse_map",
+        start_x=0,
+        start_y=0,
+        goal_x=2,
+        goal_y=1,
+    )
+
+    assert preview is not None
+    assert preview.size == (420, 280)
+    start_pixel = preview.getpixel((0, 0))
+    goal_pixel = preview.getpixel((preview.width - 1, preview.height - 1))
+    assert start_pixel == (0, 200, 0)
+    assert goal_pixel == (220, 0, 0)
 
 
 def test_path_planner_demo_vis_window_loads_map_examples_and_slider_maximums(tmp_path) -> None:
@@ -440,6 +490,72 @@ class FakePathPlannerCtx:
 
     def component_resource_path(self, component_name, *parts):
         return self.project_root / "components" / component_name / "resources" / Path(*parts)
+
+
+def test_run_path_planner_render_from_inputs_upscales_grid_result_image_for_display(tmp_path) -> None:
+    resources_dir = tmp_path / "components" / "path_planner_demo" / "resources"
+    maps_dir = resources_dir / "maps"
+    maps_dir.mkdir(parents=True)
+    (resources_dir / "manifest.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "warehouse_map",
+                    "name": "Warehouse Map",
+                    "data": "maps/warehouse.json",
+                    "content_type": "array/list",
+                    "shape": [3, 4],
+                    "dtype": "uint8",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (maps_dir / "warehouse.json").write_text(
+        json.dumps([[0, 1, 0, 0], [0, 0, 0, 0], [1, 0, 0, 1]]),
+        encoding="utf-8",
+    )
+
+    class FakeImageRenderClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def render_image_response(self, server_key, payload):
+            self.calls.append((server_key, payload))
+            return Image.new("RGB", (4, 3), color=(255, 255, 255)), {
+                "status": "success",
+                "image": {"content_type": "image/png", "data": "x" * 200},
+                "meta": {"elapsed_ms": 11},
+            }
+
+    class FakeImageCtx(FakePathPlannerCtx):
+        def __init__(self, project_root: Path) -> None:
+            self.project_root = project_root
+            self.render_client = FakeImageRenderClient()
+
+    ctx = FakeImageCtx(tmp_path)
+
+    image, status, request_json, response_json = run_path_planner_render_from_inputs(
+        ctx=ctx,
+        server_key="path_planner",
+        selected_map_id="warehouse_map",
+        start_x=1,
+        start_y=2,
+        goal_x=3,
+        goal_y=0,
+        inflation_radius=2,
+        show_start=True,
+        show_goal=False,
+        show_path_cost=True,
+        show_candidate_paths=True,
+        show_inflation_area=False,
+        request_id="req-render",
+    )
+
+    assert image.size == (420, 315)
+    assert status == "Success. elapsed_ms=11"
+    assert request_json["input"]["start"] == [1, 2]
+    assert response_json["image"]["data"] == "<base64 length=200>"
 
 
 def test_run_path_planner_render_from_inputs_calls_render_client_and_returns_outputs(tmp_path) -> None:
