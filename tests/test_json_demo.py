@@ -13,7 +13,6 @@ from components.json_demo.vis_window import (
     load_json_demo_examples,
     parse_json_demo_input,
     JSON_DEMO_EDITOR_LINES,
-    JSON_DEMO_RESULT_HEIGHT,
     check_json_demo_health,
     format_json_demo_health_indicator,
 )
@@ -56,8 +55,7 @@ def test_json_demo_vis_window_builds_inside_gradio_container(tmp_path) -> None:
         build_result = window.build(ctx)
 
     assert build_result is not None
-    assert build_result["output_image"].height == JSON_DEMO_RESULT_HEIGHT
-    assert build_result["output_image"].width == JSON_DEMO_RESULT_HEIGHT
+    assert build_result["output_image"].elem_id == "json-demo-output-image"
 
 def test_preview_json_demo_request_returns_summary_and_full_json_text() -> None:
     summary, full_text = preview_json_demo_request(
@@ -280,7 +278,7 @@ def test_json_demo_layout_uses_compact_top_controls_and_matching_result_height(t
     assert components["preview_button"].size == "sm"
     assert components["render_button"].size == "sm"
     assert components["json_input"].lines == JSON_DEMO_EDITOR_LINES
-    assert components["output_image"].height == JSON_DEMO_RESULT_HEIGHT
+    assert components["output_image"].elem_id == "json-demo-output-image"
 
 class FailingRenderClient:
     def render_image_response(self, server_key, payload):

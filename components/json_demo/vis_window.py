@@ -293,8 +293,7 @@ class JsonDemoVisWindow(BaseVisWindow):
                     show_cost = gr.Checkbox(label="Show Cost", value=True, scale=1)
                 output_image = gr.Image(
                     label="Visualization Result",
-                    height=JSON_DEMO_RESULT_HEIGHT,
-                    width=JSON_DEMO_RESULT_HEIGHT,
+                    elem_id="json-demo-output-image",
                 )
                 status_text = gr.Textbox(label="Status / Error", interactive=False)
 

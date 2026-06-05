@@ -69,6 +69,7 @@ def test_perception_demo_vis_window_builds_inside_gradio_container(tmp_path) -> 
     assert components["example_gallery"].label == "Image Examples"
     assert components["example_gallery"].object_fit == "contain"
     assert components["example_preview"].label == "Selected Example Preview"
+    assert components["example_preview"].elem_id == "perception-example-preview"
     assert "title_text" in components
     assert "health_indicator" in components
     assert "refresh_health_button" in components
@@ -76,8 +77,7 @@ def test_perception_demo_vis_window_builds_inside_gradio_container(tmp_path) -> 
     assert components["conf_threshold"].value == 0.35
     assert components["show_class_id"].value is True
     assert components["show_conf"].value is True
-    assert components["output_image"].height == PERCEPTION_DEMO_RESULT_SIZE
-    assert components["output_image"].width == PERCEPTION_DEMO_RESULT_SIZE
+    assert components["output_image"].elem_id == "perception-output-image"
     assert "output_image" in components
     assert "request_json" in components
     assert "response_json" in components

@@ -555,21 +555,27 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
         with gr.Row():
             # Starter template input column: built-in examples stay visible, upload is only a supplemental input path.
             with gr.Column():
-                example_selector = gr.Dropdown(
-                    label="Map Example",
-                    choices=[(example["name"], example["id"]) for example in examples],
-                    value=initial_map_id,
-                    interactive=True,
-                )
+                with gr.Row():
+                    example_selector = gr.Dropdown(
+                        label="Map Example",
+                        choices=[(example["name"], example["id"]) for example in examples],
+                        value=initial_map_id,
+                        interactive=True,
+                        scale=5,
+                    )
+                    uploaded_map = gr.UploadButton(
+                        label="Upload Map File",
+                        file_types=[".json", ".npy"],
+                        type="filepath",
+                        size="sm",
+                        scale=1,
+                        min_width=120,
+                    )
                 map_preview = gr.Image(
                     label="Selected Map Preview",
                     value=initial_map_preview,
                     interactive=False,
-                )
-                uploaded_map = gr.File(
-                    label="Upload Map File",
-                    file_types=[".json", ".npy"],
-                    type="filepath",
+                    elem_id="path-planner-map-preview",
                 )
                 with gr.Row():
                     start_x = gr.Slider(label="Start X", minimum=0, maximum=initial_max_x, value=0, step=1)
@@ -589,15 +595,17 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                         value=initial_max_y,
                         step=1,
                     )
-                inflation_radius = gr.Slider(
-                    label="Inflation Radius",
-                    minimum=0,
-                    maximum=20,
-                    value=1,
-                    step=1,
-                )
-                preview_button = gr.Button("Preview", size="sm")
-                render_button = gr.Button("Send", size="sm", variant="primary")
+                with gr.Row():
+                    inflation_radius = gr.Slider(
+                        label="Inflation Radius",
+                        minimum=0,
+                        maximum=20,
+                        value=1,
+                        step=1,
+                        scale=4,
+                    )
+                    preview_button = gr.Button("Preview", size="sm", scale=1, min_width=96)
+                    render_button = gr.Button("Send", size="sm", variant="primary", scale=1, min_width=96)
             # Starter template render column: visualization controls, result canvas, and request outcome.
             with gr.Column():
                 with gr.Row():
@@ -610,8 +618,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                     show_inflation_area = gr.Checkbox(label="Show Inflation Area", value=False)
                 output_image = gr.Image(
                     label="Visualization Result",
-                    height=PATH_PLANNER_DEMO_RESULT_SIZE,
-                    width=PATH_PLANNER_DEMO_RESULT_SIZE,
+                    elem_id="path-planner-output-image",
                 )
                 status_text = gr.Textbox(label="Status / Error", interactive=False)
 
@@ -715,7 +722,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
             inputs=[example_selector],
             outputs=[selected_map_id, map_preview, start_x, start_y, goal_x, goal_y],
         )
-        uploaded_map.change(
+        uploaded_map.upload(
             fn=preview_uploaded_map,
             inputs=[uploaded_map],
             outputs=[map_preview, start_x, start_y, goal_x, goal_y],

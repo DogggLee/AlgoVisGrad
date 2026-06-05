@@ -356,6 +356,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
                     value=initial_example_preview,
                     type="filepath",
                     interactive=False,
+                    elem_id="perception-example-preview",
                 )
                 with gr.Row():
                     iou_threshold = gr.Slider(
@@ -373,8 +374,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
                     show_conf = gr.Checkbox(label="Show Confidence", value=True)
                 output_image = gr.Image(
                     label="Visualization Result",
-                    height=PERCEPTION_DEMO_RESULT_SIZE,
-                    width=PERCEPTION_DEMO_RESULT_SIZE,
+                    elem_id="perception-output-image",
                 )
                 status_text = gr.Textbox(label="Status / Error", interactive=False)
 

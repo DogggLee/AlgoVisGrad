@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import gradio as gr
 
-from app import build_app
+from app import RESPONSIVE_SQUARE_MEDIA_CSS, build_app
 from utils.app_context import AppContext
 from utils.config_utils import AppConfig, AppSettings
 
@@ -93,3 +93,20 @@ def test_build_app_embeds_json_demo_window_with_resource_default(tmp_path) -> No
     app = build_app(ctx)
 
     assert isinstance(app, gr.Blocks)
+
+
+def test_build_app_adds_responsive_square_preview_css(tmp_path) -> None:
+    ctx = AppContext(
+        config=AppConfig(
+            app=AppSettings(host="127.0.0.1", port=7860, title="Test Platform"),
+            servers={},
+        ),
+        project_root=tmp_path,
+    )
+
+    build_app(ctx)
+
+    assert "#path-planner-map-preview" in RESPONSIVE_SQUARE_MEDIA_CSS
+    assert "#json-demo-output-image" in RESPONSIVE_SQUARE_MEDIA_CSS
+    assert "width: 100% !important;" in RESPONSIVE_SQUARE_MEDIA_CSS
+    assert "aspect-ratio: 1 / 1" in RESPONSIVE_SQUARE_MEDIA_CSS

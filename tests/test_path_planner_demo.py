@@ -84,6 +84,7 @@ def test_path_planner_demo_vis_window_builds_inside_gradio_container(tmp_path) -
 
     assert components["example_selector"].label == "Map Example"
     assert components["map_preview"].label == "Selected Map Preview"
+    assert components["map_preview"].elem_id == "path-planner-map-preview"
     assert components["uploaded_map"].label == "Upload Map File"
     assert "title_text" in components
     assert "health_indicator" in components
@@ -96,8 +97,7 @@ def test_path_planner_demo_vis_window_builds_inside_gradio_container(tmp_path) -
     assert components["show_start"].value is True
     assert components["show_goal"].value is True
     assert components["show_path_cost"].value is True
-    assert components["output_image"].height == PATH_PLANNER_DEMO_RESULT_SIZE
-    assert components["output_image"].width == PATH_PLANNER_DEMO_RESULT_SIZE
+    assert components["output_image"].elem_id == "path-planner-output-image"
     assert "output_image" in components
     assert "request_json" in components
     assert "response_json" in components
@@ -149,6 +149,16 @@ def test_path_planner_demo_vis_window_loads_map_examples_and_slider_maximums(tmp
     assert components["goal_y"].maximum == 4
     assert components["goal_x"].value == 6
     assert components["goal_y"].value == 4
+
+
+def test_path_planner_demo_vis_window_compacts_example_and_action_controls() -> None:
+    source = inspect.getsource(PathPlannerDemoVisWindow.build)
+
+    assert source.index('example_selector = gr.Dropdown(') < source.index('uploaded_map = gr.UploadButton(')
+    assert 'scale=5' in source
+    assert 'scale=1' in source
+    assert source.index('inflation_radius = gr.Slider(') < source.index('preview_button = gr.Button("Preview", size="sm", scale=1, min_width=96)')
+    assert source.index('preview_button = gr.Button("Preview", size="sm", scale=1, min_width=96)') < source.index('render_button = gr.Button("Send", size="sm", variant="primary", scale=1, min_width=96)')
 
 
 def test_path_planner_demo_vis_window_uses_starter_template_comment_skeleton() -> None:

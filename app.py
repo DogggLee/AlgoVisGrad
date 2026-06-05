@@ -10,6 +10,41 @@ from components.perception_demo.vis_window import PerceptionDemoVisWindow
 from utils.app_context import AppContext, create_app_context
 
 
+RESPONSIVE_SQUARE_MEDIA_CSS = """
+#perception-example-preview,
+#perception-output-image,
+#path-planner-map-preview,
+#path-planner-output-image,
+#json-demo-output-image {
+  width: 100%;
+}
+
+#perception-example-preview > div,
+#perception-output-image > div,
+#path-planner-map-preview > div,
+#path-planner-output-image > div,
+#json-demo-output-image > div {
+  width: 100% !important;
+}
+
+#perception-example-preview img,
+#perception-output-image img,
+#path-planner-map-preview img,
+#path-planner-output-image img,
+#json-demo-output-image img,
+#perception-example-preview canvas,
+#perception-output-image canvas,
+#path-planner-map-preview canvas,
+#path-planner-output-image canvas,
+#json-demo-output-image canvas {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+}
+"""
+
+
 def build_app(ctx: AppContext) -> gr.Blocks:
     """Build the top-level Gradio application.
 
@@ -20,6 +55,7 @@ def build_app(ctx: AppContext) -> gr.Blocks:
         Gradio Blocks application ready to launch.
     """
     with gr.Blocks(title=ctx.config.app.title) as app:
+        gr.HTML(f"<style>{RESPONSIVE_SQUARE_MEDIA_CSS}</style>")
         gr.Markdown(f"# {ctx.config.app.title}")
         with gr.Tabs():
             with gr.Tab("Perception Demo"):
