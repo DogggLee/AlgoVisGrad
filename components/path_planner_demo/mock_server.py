@@ -4,6 +4,7 @@ import base64
 import io
 from typing import Any
 
+import numpy as np
 from flask import Flask, jsonify, request
 from PIL import Image, ImageDraw
 
@@ -52,6 +53,25 @@ def create_path_planner_demo_mock_app() -> Flask:
     return app
 
 
+def decode_path_planner_demo_map_grid(map_payload: dict[str, Any]) -> np.ndarray:
+    """Decode the packed map payload into a 2D numpy grid.
+
+    Args:
+        map_payload: Packed map payload containing `content_type` and serialized map data.
+
+    Returns:
+        Two-dimensional numpy array representing the occupancy grid.
+    """
+    content_type = str(map_payload.get("content_type", "array/list"))
+
+    if content_type == "array/npy":
+        data = base64.b64decode(map_payload["data"])
+        grid = np.load(io.BytesIO(data), allow_pickle=False)
+        return np.asarray(grid)
+
+    return np.asarray(map_payload["data"])
+
+
 def render_path_planner_demo_image(
     map_payload: dict[str, Any],
     start: list[int] | tuple[int, int],
@@ -65,7 +85,7 @@ def render_path_planner_demo_image(
     """Render a simple path planner visualization from the map payload.
 
     Args:
-        map_payload: Packed map payload with `array/list` data.
+        map_payload: Packed map payload with `array/list` or `array/npy` data.
         start: Start point encoded as `[x, y]`.
         goal: Goal point encoded as `[x, y]`.
         show_start: Whether to draw the start marker.
@@ -77,9 +97,9 @@ def render_path_planner_demo_image(
     Returns:
         RGB PIL image whose size matches the map width and height.
     """
-    grid = map_payload["data"]
-    height = len(grid)
-    width = len(grid[0]) if height else 1
+    grid = decode_path_planner_demo_map_grid(map_payload)
+    height = int(grid.shape[0])
+    width = int(grid.shape[1]) if grid.ndim >= 2 and grid.shape[0] else 1
     image = Image.new("RGB", (width, height), color=(255, 255, 255))
     draw = ImageDraw.Draw(image)
 
