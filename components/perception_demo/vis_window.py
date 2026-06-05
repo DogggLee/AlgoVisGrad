@@ -45,25 +45,6 @@ def load_perception_example_gallery(ctx: Any) -> list[tuple[str, str]]:
     ]
 
 
-def get_perception_example_preview(ctx: Any, selected_image_id: str | None) -> str | None:
-    """Resolve the preview image path for one selected perception example.
-
-    Args:
-        ctx: Application context used to resolve the perception resources path.
-        selected_image_id: Manifest id of the selected image example.
-
-    Returns:
-        Filesystem path to the preview image, or None when no example is selected.
-    """
-    if not selected_image_id:
-        return None
-
-    resources_dir = ctx.component_resource_path("perception_demo")
-    manifest = load_manifest(resources_dir)
-    item = next(item for item in manifest if item["id"] == selected_image_id)
-    return str(resources_dir / str(item.get("preview", item["data"])))
-
-
 def build_perception_payload(
     image_payload: dict[str, Any],
     iou_threshold: float,
@@ -323,7 +304,6 @@ class PerceptionDemoVisWindow(BaseVisWindow):
             examples = []
             example_gallery_values = []
         initial_example_id = examples[0]["id"] if examples else None
-        initial_example_preview = get_perception_example_preview(ctx, initial_example_id) if initial_example_id else None
 
         # Starter template title row: title, service status, and manual refresh.
         with gr.Row():
@@ -343,28 +323,22 @@ class PerceptionDemoVisWindow(BaseVisWindow):
                 example_gallery = gr.Gallery(
                     label="Image Examples",
                     value=example_gallery_values,
-                    columns=3,
-                    height=180,
-                    allow_preview=False,
-                    preview=False,
+                    columns=5,
+                    # height=180,
+                    allow_preview=True,
+                    preview=True,
                     selected_index=0 if example_gallery_values else None,
-                    object_fit="contain",
+                    object_fit="scale-down",
                 )
                 uploaded_image = gr.Image(label="Upload Image", type="filepath")
-                example_preview = gr.Image(
-                    label="Selected Example Preview",
-                    value=initial_example_preview,
-                    type="filepath",
-                    interactive=False,
-                    elem_id="perception-example-preview",
-                )
                 with gr.Row():
                     iou_threshold = gr.Slider(
-                        label="IoU Threshold", minimum=0.0, maximum=1.0, value=0.5, step=0.01, scale=3
+                        label="IoU Thre.", minimum=0.0, maximum=1.0, value=0.5, step=0.01, scale=3
                     )
                     conf_threshold = gr.Slider(
-                        label="Confidence Threshold", minimum=0.0, maximum=1.0, value=0.35, step=0.01, scale=3
+                        label="Conf. Thre.", minimum=0.0, maximum=1.0, value=0.35, step=0.01, scale=3
                     )
+                with gr.Row():
                     preview_button = gr.Button("Preview", size="sm", scale=1, min_width=96)
                     render_button = gr.Button("Send", size="sm", variant="primary", scale=1, min_width=96)
             # Starter template render column: visualization controls, result canvas, and request outcome.
@@ -386,11 +360,10 @@ class PerceptionDemoVisWindow(BaseVisWindow):
                 response_json = gr.JSON(label="Response JSON")
 
         # Starter template callback definitions: keep resource resolution and request workflows readable for copy-and-adapt development.
-        def select_example(evt: gr.SelectData) -> tuple[str | None, str | None]:
+        def select_example(evt: gr.SelectData) -> str | None:
             if evt.index is None or evt.index < 0 or evt.index >= len(examples):
-                return None, None
-            example_id = examples[evt.index]["id"]
-            return example_id, get_perception_example_preview(ctx, example_id)
+                return None
+            return examples[evt.index]["id"]
 
         def preview_request(
             selected_image_id_value: str | None,
@@ -443,7 +416,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
         example_gallery.select(
             fn=select_example,
             inputs=[],
-            outputs=[selected_image_id, example_preview],
+            outputs=[selected_image_id],
         )
         preview_button.click(
             fn=preview_request,
@@ -475,7 +448,6 @@ class PerceptionDemoVisWindow(BaseVisWindow):
             "health_indicator": health_indicator,
             "refresh_health_button": refresh_health_button,
             "example_gallery": example_gallery,
-            "example_preview": example_preview,
             "selected_image_id": selected_image_id,
             "uploaded_image": uploaded_image,
             "iou_threshold": iou_threshold,
