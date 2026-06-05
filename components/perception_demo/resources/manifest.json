@@ -12,5 +12,33 @@
     "preview": "images/nohat2.jpg",
     "data": "images/nohat2.jpg",
     "content_type": "image/jpeg"
+  },
+  {
+    "id": "1",
+    "name": "COCO 1",
+    "preview": "images/1.jpg",
+    "data": "images/1.jpg",
+    "content_type": "image/jpeg"
+  },
+  {
+    "id": "2",
+    "name": "COCO 2",
+    "preview": "images/2.jpg",
+    "data": "images/2.jpg",
+    "content_type": "image/jpeg"
+  },
+  {
+    "id": "3",
+    "name": "COCO 3",
+    "preview": "images/3.jpg",
+    "data": "images/3.jpg",
+    "content_type": "image/jpeg"
+  },
+  {
+    "id": "4",
+    "name": "COCO 4",
+    "preview": "images/4.jpg",
+    "data": "images/4.jpg",
+    "content_type": "image/jpeg"
   }
 ]
