@@ -14,7 +14,7 @@ from components.json_demo.vis_window import (
     parse_json_demo_input,
     JSON_DEMO_EDITOR_LINES,
     check_json_demo_health,
-    format_json_demo_health_indicator,
+    format_health_indicator,
 )
 from utils.app_context import AppContext
 from utils.config_utils import AppConfig, AppSettings
@@ -354,8 +354,8 @@ def test_json_demo_build_checks_initial_health_status(tmp_path) -> None:
     assert ctx.health_client.calls == ["json_demo"]
 
 def test_format_json_demo_health_indicator_uses_green_for_online_and_red_otherwise() -> None:
-    online_text = format_json_demo_health_indicator("online: json server is online")
-    offline_text = format_json_demo_health_indicator("offline: json server is offline")
+    online_text = format_health_indicator("online: json server is online")
+    offline_text = format_health_indicator("offline: json server is offline")
 
     assert online_text == "🟢 online"
     assert offline_text == "🔴 offline"

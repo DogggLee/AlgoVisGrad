@@ -9,7 +9,7 @@ from components.perception_demo.vis_window import (
     PerceptionDemoVisWindow,
     build_perception_payload,
     check_perception_demo_health,
-    format_perception_demo_health_indicator,
+    format_health_indicator,
     preview_perception_request,
     resolve_perception_image_payload,
     preview_perception_from_inputs,
@@ -138,7 +138,7 @@ def test_perception_demo_vis_window_compacts_threshold_controls() -> None:
 
 
 def test_format_perception_demo_health_indicator_marks_online_green() -> None:
-    assert format_perception_demo_health_indicator("online: ready") == "🟢 online"
+    assert format_health_indicator("online: ready") == "🟢 online"
 
 
 def test_check_perception_demo_health_formats_state_and_message() -> None:

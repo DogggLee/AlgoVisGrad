@@ -186,7 +186,7 @@ def preview_perception_from_inputs(
     )
 
 
-def format_perception_demo_health_indicator(status_text: str) -> str:
+def format_health_indicator(status_text: str) -> str:
     """Format perception server status as a Gradio Markdown indicator.
 
     Args:
@@ -276,6 +276,7 @@ def run_perception_render_from_inputs(
 
 class PerceptionDemoVisWindow(BaseVisWindow):
     """Embeddable Gradio visualization window for perception image rendering.
+    核心页面组件，在该Class下实现算法可视化页面的组合
 
     Attributes:
         window_id: Stable identifier for this window instance.
@@ -285,6 +286,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
 
     def build(self, ctx: Any) -> dict[str, Any]:
         """Build perception demo controls inside the current Gradio container.
+        构建UI界面，以及每个UI控件的响应逻辑
 
         Args:
             ctx: Application context with config, clients, and resource helpers.
@@ -293,10 +295,12 @@ class PerceptionDemoVisWindow(BaseVisWindow):
             Dictionary of important Gradio components created by this window.
         """
         try:
+            # 先检查指定的算法Server是否正常启动，需要调用该算法Server的/health接口
             initial_health = check_perception_demo_health(ctx, self.server_key)
         except Exception:
             initial_health = "unknown: not checked"
 
+        # 加载示例数据，默认保存在./resources下，由 manifest.json进行管理
         try:
             examples = load_perception_examples(ctx)
             example_gallery_values = load_perception_example_gallery(ctx)
@@ -306,19 +310,22 @@ class PerceptionDemoVisWindow(BaseVisWindow):
         initial_example_id = examples[0]["id"] if examples else None
 
         # Starter template title row: title, service status, and manual refresh.
+        # 创建Gradio的UI组件，该部分可以不作任何修改，默认所有算法页面都需要该内容（页面标题，算法Server状态，状态刷新按钮）
         with gr.Row():
             with gr.Column(scale=0, min_width=170):
                 title_text = gr.Markdown(f"## {self.title}")
             with gr.Column(scale=0, min_width=90):
-                health_indicator = gr.Markdown(format_perception_demo_health_indicator(initial_health))
+                health_indicator = gr.Markdown(format_health_indicator(initial_health))
             with gr.Column(scale=0, min_width=48):
                 refresh_health_button = gr.Button("↻", size="sm", min_width=48)
 
         selected_image_id = gr.State(initial_example_id)
 
         # Starter template input and render columns: request inputs on the left, render settings and outputs on the right.
+        # 核心页面大致分为三块：算法输入列、输出渲染列、和Debug行。 按倒“品”字形排列
         with gr.Row():
             # Starter template input column: built-in examples stay visible, upload is only a supplemental input path.
+            # 算法输入列：用于所有算法本身调用所需的输入参数，其对应控件都放在这一列进行排布
             with gr.Column():
                 example_gallery = gr.Gallery(
                     label="Image Examples",
@@ -342,6 +349,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
                     preview_button = gr.Button("Preview", size="sm", scale=1, min_width=96)
                     render_button = gr.Button("Send", size="sm", variant="primary", scale=1, min_width=96)
             # Starter template render column: visualization controls, result canvas, and request outcome.
+            # 渲染输出列：用于所有算法渲染所需的参数，以及渲染结果展示
             with gr.Column():
                 with gr.Row():
                     show_class_id = gr.Checkbox(label="Show Class ID", value=True)
@@ -353,6 +361,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
                 status_text = gr.Textbox(label="Status / Error", interactive=False)
 
         # Starter template debug row: request and response payloads stay visible for integration debugging.
+        # Debug行：用于展示算法Server的IO原始数据，以便于复现调试
         with gr.Tabs():
             with gr.Tab("Request JSON"):
                 request_json = gr.JSON(label="Request JSON")
@@ -360,6 +369,7 @@ class PerceptionDemoVisWindow(BaseVisWindow):
                 response_json = gr.JSON(label="Response JSON")
 
         # Starter template callback definitions: keep resource resolution and request workflows readable for copy-and-adapt development.
+        # 提前定义每个UI控件的CallBack函数（主要是各类按钮的响应）
         def select_example(evt: gr.SelectData) -> str | None:
             if evt.index is None or evt.index < 0 or evt.index >= len(examples):
                 return None
@@ -405,9 +415,10 @@ class PerceptionDemoVisWindow(BaseVisWindow):
             )
 
         def refresh_health() -> str:
-            return format_perception_demo_health_indicator(check_perception_demo_health(ctx, self.server_key))
+            return format_health_indicator(check_perception_demo_health(ctx, self.server_key))
 
         # Starter template event bindings and returned components: keep the starter flow explicit instead of hiding it behind extra abstraction.
+        # 链接UI控件与CallBack函数
         refresh_health_button.click(
             fn=refresh_health,
             inputs=[],

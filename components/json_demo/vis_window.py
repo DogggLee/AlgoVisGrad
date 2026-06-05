@@ -140,7 +140,7 @@ def preview_json_demo_request(
     )
 
 
-def format_json_demo_health_indicator(status_text: str) -> str:
+def format_health_indicator(status_text: str) -> str:
     """Format JSON demo server status as a Gradio Markdown indicator.
 
     Args:
@@ -231,6 +231,7 @@ def run_json_demo_render(
 
 class JsonDemoVisWindow(BaseVisWindow):
     """Embeddable Gradio visualization window for JSON-driven image rendering.
+    核心页面组件，在该Class下实现算法可视化页面的组合
 
     Attributes:
         window_id: Stable identifier for this window instance.
@@ -240,6 +241,7 @@ class JsonDemoVisWindow(BaseVisWindow):
 
     def build(self, ctx: Any) -> dict[str, Any]:
         """Build JSON demo controls inside the current Gradio container.
+        构建UI界面，以及每个UI控件的响应逻辑
 
         Args:
             ctx: Application context with config, clients, and resource helpers.
@@ -247,28 +249,34 @@ class JsonDemoVisWindow(BaseVisWindow):
         Returns:
             Dictionary of important Gradio components created by this window.
         """
+        # 先检查指定的算法Server是否正常启动，需要调用该算法Server的/health接口
         try:
             initial_health = check_json_demo_health(ctx, self.server_key)
         except Exception:
             initial_health = "unknown: not checked"
 
-        # Starter template title row: title, service status, and manual refresh.
-        with gr.Row():
-            with gr.Column(scale=0, min_width=150):
-                title_text = gr.Markdown(f"## {self.title}")
-            with gr.Column(scale=0, min_width=90):
-                health_indicator = gr.Markdown(format_json_demo_health_indicator(initial_health))
-            with gr.Column(scale=0, min_width=48):
-                refresh_health_button = gr.Button("↻", size="sm", min_width=48)
+        # 加载示例数据，默认保存在./resources下，由 manifest.json进行管理
         try:
             examples = load_json_demo_examples(ctx)
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
             examples = []
         example_choices = [(example["name"], example["id"]) for example in examples]
 
+        # Starter template title row: title, service status, and manual refresh.
+        # 创建Gradio的UI组件，该部分可以不作任何修改，默认所有算法页面都需要该内容（页面标题，算法Server状态，状态刷新按钮）
+        with gr.Row():
+            with gr.Column(scale=0, min_width=150):
+                title_text = gr.Markdown(f"## {self.title}")
+            with gr.Column(scale=0, min_width=90):
+                health_indicator = gr.Markdown(format_health_indicator(initial_health))
+            with gr.Column(scale=0, min_width=48):
+                refresh_health_button = gr.Button("↻", size="sm", min_width=48)
+
         # Starter template input and render columns: request inputs on the left, render settings and outputs on the right.
+        # 核心页面大致分为三块：算法输入列、输出渲染列、和Debug行。 按倒“品”字形排列
         with gr.Row():
             # Starter template input column: the JSON editor is both the editable workspace and the visible example preview.
+            # 算法输入列：用于所有算法本身调用所需的输入参数，其对应控件都放在这一列进行排布
             with gr.Column():
                 with gr.Row():
                     example_selector = gr.Dropdown(
@@ -288,6 +296,7 @@ class JsonDemoVisWindow(BaseVisWindow):
                     interactive=True,
                 )
             # Starter template render column: visualization controls, result canvas, and request outcome.
+            # 渲染输出列：用于所有算法渲染所需的参数，以及渲染结果展示
             with gr.Column():
                 with gr.Row():
                     show_cost = gr.Checkbox(label="Show Cost", value=True, scale=1)
@@ -298,6 +307,7 @@ class JsonDemoVisWindow(BaseVisWindow):
                 status_text = gr.Textbox(label="Status / Error", interactive=False)
 
         # Starter template debug row: request and response payloads stay visible for integration debugging.
+        # Debug行：用于展示算法Server的IO原始数据，以便于复现调试
         with gr.Tabs():
             with gr.Tab("Request JSON"):
                 request_json = gr.JSON(label="Request JSON")
@@ -305,6 +315,8 @@ class JsonDemoVisWindow(BaseVisWindow):
                 response_json = gr.JSON(label="Response JSON")
 
         # Starter template callback definitions: keep the example-loading and request workflows explicit for copy-and-adapt development.
+        # 提前定义每个UI控件的CallBack函数（主要是各类按钮的响应）
+
         def load_selected_example(example_id: str | None) -> str:
             if not example_id:
                 return "{}"
@@ -328,9 +340,10 @@ class JsonDemoVisWindow(BaseVisWindow):
             )
 
         def refresh_health() -> str:
-            return format_json_demo_health_indicator(check_json_demo_health(ctx, self.server_key))
+            return format_health_indicator(check_json_demo_health(ctx, self.server_key))
 
         # Starter template event bindings and returned components: make the starter flow readable without adding extra abstraction layers.
+        # 链接UI控件与CallBack函数
         refresh_health_button.click(
             fn=refresh_health,
             inputs=[],
