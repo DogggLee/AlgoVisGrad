@@ -17,21 +17,24 @@ Gradio-based visualization platform for external Flask algorithm services.
 pip install -r requirements.txt
 ```
 
-* 启动单个 JSON demo mock server
-```bash
-python -m components.json_demo.mock_server
-```
+* 启动mock server 或算法Server (可选)
+  * 一次性启动全部 mock server (可选)
+  ```bash
+  ./start_mock_demo.sh
+  ```
+  其会启动以下三个mock server：
+  ```text
+  perception_demo   http://127.0.0.1:5001
+  path_planner_demo http://127.0.0.1:5002
+  json_demo         http://127.0.0.1:5003
+  ```
 
-* 一次性启动全部 mock server
-```bash
-./start_mock_demo.sh
-```
-其会启动以下三个mock server：
-```text
-perception_demo   http://127.0.0.1:5001
-path_planner_demo http://127.0.0.1:5002
-json_demo         http://127.0.0.1:5003
-```
+  * 单个 JSON demo mock server (可选)
+  ```bash
+  python -m components.json_demo.mock_server
+  ```
+
+
 
 * 启动可视化平台
 ```bash
