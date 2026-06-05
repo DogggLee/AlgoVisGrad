@@ -74,9 +74,8 @@ python app.py
 
   `build(ctx)` 是构造本算法页面的UI控件以及对应的CallBack函数，要注意VisWindow不是一个独立的网页，而是一组UI控件集合（可以理解为PPT里的组合），可以随时被顶层的app.py重新整体排布到其他位置。
 
-Do not create `gr.Blocks` or top-level tabs inside a `VisWindow`; `app.py` owns the top-level layout.
 
-  目前的典型页面可以大致分为以下4个部分：
+  目前的典型页面可以大致分为以下4个区域：
   - title row：页面标题、算法Server状态、状态刷新按钮
   - Input column: 算法输入相关UI，通常包括一个输入示例selector、previewer以及部分参数输入栏；
   - Render column: 算法输出相关UI，通常包括可视化内容checkbox、结果渲染窗口以及响应状态.
@@ -113,6 +112,43 @@ Do not create `gr.Blocks` or top-level tabs inside a `VisWindow`; `app.py` owns 
   array/npy     // `data` is `.npy` file bytes encoded as base64.
   application/json   // `data` is original .json file
   ```
+
+ * demo_app.py
+   参考app.py编写自己的build_app函数
+   ```python
+   def build_app(ctx: AppContext) -> gr.Blocks:
+    """Build the top-level Gradio application.
+
+    Args:
+        ctx: Application context containing config, clients, and resource helpers.
+
+    Returns:
+        Gradio Blocks application ready to launch.
+    """
+    with gr.Blocks(title=ctx.config.app.title) as app:
+        gr.HTML(f"<style>{RESPONSIVE_SQUARE_MEDIA_CSS}</style>")
+        gr.Markdown(f"# {ctx.config.app.title}")
+        with gr.Tabs():
+            with gr.Tab("My Page"):
+                MyVisWindow(
+                    window_id="window_id",
+                    title="My Algorithm",
+                    server_key="my_algo_server_name",
+                ).build(ctx)
+            
+    return app
+   ```
+  
+  * config.yaml
+    在servers组中增加自身算法Server的参数配置
+    ```json
+    servers:
+      <server_key>:
+        base_url: http://<ip_addr>:<port>
+        health_path: /health
+        render_path: /render
+        timeout_seconds: 30
+    ```
 
 ### 2.2 算法 Server 协议
 
