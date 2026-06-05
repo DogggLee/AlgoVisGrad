@@ -8,3 +8,9 @@ env/
 venv/
 outputs/
 *.log
+
+
+AGENTS.md
+PLAN.md
+PRD.md
+TODO.md
