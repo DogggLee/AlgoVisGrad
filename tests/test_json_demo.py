@@ -130,7 +130,7 @@ def test_run_json_demo_render_calls_render_client_and_returns_ui_outputs() -> No
     assert image == "image-result"
     assert status == "Success. elapsed_ms=7"
     assert request_json["input"]["payload"]["cost"] == "x" * 40
-    assert response_json["image"]["data"] == "<base64 length=40>"
+    assert response_json["image"]["data"] == "x" * 40
     assert ctx.render_client.calls[0][0] == "json_demo"
     assert ctx.render_client.calls[0][1]["visualization"] == {"show_cost": True}
 

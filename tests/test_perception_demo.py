@@ -152,7 +152,7 @@ def test_check_perception_demo_health_formats_state_and_message() -> None:
 
     assert check_perception_demo_health(FakeCtx(), "perception") == "offline: perception is offline"
 
-def test_preview_perception_request_returns_summarized_request_json() -> None:
+def test_preview_perception_request_returns_raw_request_json() -> None:
     summary = preview_perception_request(
         image_payload={
             "content_type": "image/png",
@@ -167,7 +167,7 @@ def test_preview_perception_request_returns_summarized_request_json() -> None:
         max_string_length=10,
     )
 
-    assert summary["input"]["image"]["data"] == "<base64 length=40>"
+    assert summary["input"]["image"]["data"] == "x" * 40
     assert summary["input"]["iou_threshold"] == 0.5
     assert summary["visualization"] == {
         "show_class_id": True,
@@ -250,7 +250,7 @@ def test_preview_perception_from_inputs_resolves_image_and_returns_request_json(
         request_id="req-preview",
     )
 
-    assert request_json["input"]["image"]["data"].startswith("<base64 length=")
+    assert request_json["input"]["image"]["data"]
     assert request_json["input"]["iou_threshold"] == 0.6
     assert request_json["visualization"] == {"show_class_id": True, "show_conf": True}
 
@@ -311,8 +311,8 @@ def test_run_perception_render_from_inputs_calls_render_client_and_returns_outpu
 
     assert image == "image-result"
     assert status == "Success. elapsed_ms=9"
-    assert request_json["input"]["image"]["data"].startswith("<base64 length=")
-    assert response_json["image"]["data"] == "<base64 length=200>"
+    assert request_json["input"]["image"]["data"]
+    assert response_json["image"]["data"] == "x" * 200
     assert ctx.render_client.calls[0][0] == "perception"
     assert ctx.render_client.calls[0][1]["visualization"] == {
         "show_class_id": True,

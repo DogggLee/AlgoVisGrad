@@ -10,7 +10,6 @@ import numpy as np
 from PIL import Image
 
 from components.base import BaseVisWindow
-from utils.payload_utils import summarize_large_fields
 from utils.resource_utils import load_manifest, pack_resource
 
 
@@ -228,10 +227,10 @@ def preview_path_planner_request(
         show_candidate_paths: Whether to draw candidate paths.
         show_inflation_area: Whether to draw inflated obstacle area.
         request_id: Client-generated request identifier.
-        max_string_length: Strings longer than this are summarized in preview output.
+        max_string_length: Unused compatibility parameter retained for the current public interface.
 
     Returns:
-        Summarized render request payload suitable for Request JSON display.
+        Raw render request payload suitable for Request JSON display.
     """
     payload = build_path_planner_payload(
         map_payload=map_payload,
@@ -247,7 +246,7 @@ def preview_path_planner_request(
         show_inflation_area=show_inflation_area,
         request_id=request_id,
     )
-    return summarize_large_fields(payload, max_string_length=max_string_length)
+    return payload
 
 
 def preview_path_planner_from_inputs(
@@ -285,7 +284,7 @@ def preview_path_planner_from_inputs(
         request_id: Client-generated request identifier.
 
     Returns:
-        Summarized render request payload for Request JSON display.
+        Raw render request payload for Request JSON display.
     """
     map_payload = resolve_path_planner_map_payload(
         ctx=ctx,
@@ -366,7 +365,7 @@ def run_path_planner_render_from_inputs(
         show_inflation_area=show_inflation_area,
         request_id=request_id,
     )
-    request_json = summarize_large_fields(payload)
+    request_json = payload
 
     try:
         image, response_payload = ctx.render_client.render_image_response(server_key, payload)
@@ -380,14 +379,14 @@ def run_path_planner_render_from_inputs(
         )
 
     image = _scale_path_planner_display_image(image)
-    response_json = summarize_large_fields(response_payload)
+    response_json = response_payload
     meta = response_payload.get("meta", {})
     elapsed_ms = meta.get("elapsed_ms")
     status = "Success." if elapsed_ms is None else f"Success. elapsed_ms={elapsed_ms}"
     return image, status, request_json, response_json
 
 
-def format_path_planner_demo_health_indicator(status_text: str) -> str:
+def format_health_indicator(status_text: str) -> str:
     """Format path planner server status as a Gradio Markdown indicator.
 
     Args:
@@ -563,6 +562,7 @@ def _scale_path_planner_display_image(image: Any) -> Any:
 
 class PathPlannerDemoVisWindow(BaseVisWindow):
     """Embeddable Gradio visualization window for path planner rendering.
+    构建UI界面，以及每个UI控件的响应逻辑
 
     Attributes:
         window_id: Stable identifier for this window instance.
@@ -579,11 +579,13 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
         Returns:
             Dictionary of important Gradio components created by this window.
         """
+        # 先检查指定的算法Server是否正常启动，需要调用该算法Server的/health接口
         try:
             initial_health = check_path_planner_demo_health(ctx, self.server_key)
         except Exception:
             initial_health = "unknown: not checked"
 
+        # 加载示例数据，默认保存在./resources下，由 manifest.json进行管理
         try:
             examples = load_path_planner_examples(ctx)
         except (FileNotFoundError, KeyError):
@@ -603,19 +605,22 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
         )
 
         # Starter template title row: title, service status, and manual refresh.
+        # 创建Gradio的UI组件，该部分可以不作任何修改，默认所有算法页面都需要该内容（页面标题，算法Server状态，状态刷新按钮）
         with gr.Row():
             with gr.Column(scale=0, min_width=190):
                 title_text = gr.Markdown(f"## {self.title}")
             with gr.Column(scale=0, min_width=90):
-                health_indicator = gr.Markdown(format_path_planner_demo_health_indicator(initial_health))
+                health_indicator = gr.Markdown(format_health_indicator(initial_health))
             with gr.Column(scale=0, min_width=48):
                 refresh_health_button = gr.Button("↻", size="sm", min_width=48)
 
         selected_map_id = gr.State(initial_map_id)
 
         # Starter template input and render columns: request inputs on the left, render settings and outputs on the right.
+        # 核心页面大致分为三块：算法输入列、输出渲染列、和Debug行。 按倒“品”字形排列
         with gr.Row():
             # Starter template input column: built-in examples stay visible, upload is only a supplemental input path.
+            # 算法输入列：用于所有算法本身调用所需的输入参数，其对应控件都放在这一列进行排布
             with gr.Column():
                 with gr.Row():
                     example_selector = gr.Dropdown(
@@ -669,6 +674,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                     preview_button = gr.Button("Preview", size="sm", scale=1, min_width=96)
                     render_button = gr.Button("Send", size="sm", variant="primary", scale=1, min_width=96)
             # Starter template render column: visualization controls, result canvas, and request outcome.
+            # 渲染输出列：用于所有算法渲染所需的参数，以及渲染结果展示
             with gr.Column():
                 with gr.Row():
                     show_start = gr.Checkbox(label="Show Start", value=True)
@@ -687,6 +693,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                 status_text = gr.Textbox(label="Status / Error", interactive=False)
 
         # Starter template debug row: request and response payloads stay visible for integration debugging.
+        # Debug行：用于展示算法Server的IO原始数据，以便于复现调试
         with gr.Tabs():
             with gr.Tab("Request JSON"):
                 request_json = gr.JSON(label="Request JSON")
@@ -694,6 +701,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                 response_json = gr.JSON(label="Response JSON")
 
         # Starter template callback definitions: keep map selection, preview, and request workflows readable for copy-and-adapt development.
+        # 提前定义每个UI控件的CallBack函数（主要是各类按钮的响应）
         def select_example(selected_map_value: str | None) -> tuple[str | None, Image.Image | None, dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
             slider_updates = build_path_planner_slider_updates(ctx, selected_map_value)
             if not selected_map_value:
@@ -808,9 +816,10 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
             )
 
         def refresh_health() -> str:
-            return format_path_planner_demo_health_indicator(check_path_planner_demo_health(ctx, self.server_key))
+            return format_health_indicator(check_path_planner_demo_health(ctx, self.server_key))
 
         # Starter template event bindings and returned components: keep the starter flow explicit instead of hiding it behind extra abstraction.
+        # 链接UI控件与CallBack函数
         refresh_health_button.click(
             fn=refresh_health,
             inputs=[],

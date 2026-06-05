@@ -6,7 +6,6 @@ from typing import Any
 import gradio as gr
 
 from components.base import BaseVisWindow
-from utils.payload_utils import summarize_large_fields
 from utils.resource_utils import load_manifest
 
 
@@ -114,10 +113,10 @@ def preview_json_demo_request(
         user_payload: User-provided JSON text or object passed under `input.payload`.
         show_cost: Whether cost visualization is requested.
         request_id: Client-generated request identifier for debugging/reproduction.
-        max_string_length: Strings longer than this are summarized in the preview.
+        max_string_length: Unused compatibility parameter retained for the current public interface.
 
     Returns:
-        Tuple of summarized payload dictionary and complete pretty-printed JSON text.
+        Tuple of raw payload dictionary and complete pretty-printed JSON text.
     """
     try:
         parsed_payload = parse_json_demo_input(user_payload)
@@ -135,7 +134,7 @@ def preview_json_demo_request(
         request_id=request_id,
     )
     return (
-        summarize_large_fields(payload, max_string_length=max_string_length),
+        payload,
         json.dumps(payload, ensure_ascii=False, indent=2),
     )
 
@@ -184,7 +183,7 @@ def run_json_demo_render(
         user_payload: User-provided JSON object passed under `input.payload`.
         show_cost: Whether cost visualization is requested.
         request_id: Client-generated request identifier for debugging/reproduction.
-        max_string_length: Strings longer than this are summarized in the preview.
+        max_string_length: Unused compatibility parameter retained for the current public interface.
 
     Returns:
         Tuple of image result, status text, request JSON, and response JSON.
@@ -222,7 +221,7 @@ def run_json_demo_render(
             {"status": "error", "error": {"message": error_message}},
         )
 
-    response_json = summarize_large_fields(response_payload, max_string_length=max_string_length)
+    response_json = response_payload
     meta = response_payload.get("meta", {})
     elapsed_ms = meta.get("elapsed_ms")
     status = "Success." if elapsed_ms is None else f"Success. elapsed_ms={elapsed_ms}"

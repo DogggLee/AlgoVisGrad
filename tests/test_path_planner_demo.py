@@ -13,7 +13,7 @@ from components.path_planner_demo.vis_window import (
     PathPlannerDemoVisWindow,
     PATH_PLANNER_DEMO_RESULT_SIZE,
     check_path_planner_demo_health,
-    format_path_planner_demo_health_indicator,
+    format_health_indicator,
     get_path_planner_map_dimensions,
     get_path_planner_map_preview,
     preview_path_planner_from_inputs,
@@ -146,7 +146,7 @@ def test_get_path_planner_map_preview_draws_start_and_goal_markers(tmp_path) -> 
     )
 
     assert preview is not None
-    assert preview.size == (420, 280)
+    assert preview.size == (498, 332)
     start_pixel = preview.getpixel((0, 0))
     goal_pixel = preview.getpixel((preview.width - 1, preview.height - 1))
     assert start_pixel == (0, 200, 0)
@@ -223,7 +223,7 @@ def test_path_planner_demo_vis_window_uses_starter_template_comment_skeleton() -
 
 
 def test_format_path_planner_demo_health_indicator_marks_online_green() -> None:
-    assert format_path_planner_demo_health_indicator("online: ready") == "🟢 online"
+    assert format_health_indicator("online: ready") == "🟢 online"
 
 
 def test_check_path_planner_demo_health_formats_state_and_message() -> None:
@@ -552,10 +552,10 @@ def test_run_path_planner_render_from_inputs_upscales_grid_result_image_for_disp
         request_id="req-render",
     )
 
-    assert image.size == (420, 315)
+    assert image.size == (500, 375)
     assert status == "Success. elapsed_ms=11"
     assert request_json["input"]["start"] == [1, 2]
-    assert response_json["image"]["data"] == "<base64 length=200>"
+    assert response_json["image"]["data"] == "x" * 200
 
 
 def test_run_path_planner_render_from_inputs_calls_render_client_and_returns_outputs(tmp_path) -> None:
@@ -603,7 +603,7 @@ def test_run_path_planner_render_from_inputs_calls_render_client_and_returns_out
     assert image == "image-result"
     assert status == "Success. elapsed_ms=11"
     assert request_json["input"]["start"] == [1, 2]
-    assert response_json["image"]["data"] == "<base64 length=200>"
+    assert response_json["image"]["data"] == "x" * 200
     assert ctx.render_client.calls[0][0] == "path_planner"
     assert ctx.render_client.calls[0][1]["visualization"] == {
         "show_start": True,

@@ -6,7 +6,6 @@ from typing import Any
 import gradio as gr
 
 from components.base import BaseVisWindow
-from utils.payload_utils import summarize_large_fields
 from utils.resource_utils import load_manifest, pack_resource
 
 
@@ -130,10 +129,10 @@ def preview_perception_request(
         show_class_id: Whether class IDs should be drawn.
         show_conf: Whether confidence values should be drawn.
         request_id: Client-generated request identifier for debugging/reproduction.
-        max_string_length: Strings longer than this are summarized in preview output.
+        max_string_length: Unused compatibility parameter retained for the current public interface.
 
     Returns:
-        Summarized render request payload suitable for Request JSON display.
+        Raw render request payload suitable for Request JSON display.
     """
     payload = build_perception_payload(
         image_payload=image_payload,
@@ -143,7 +142,7 @@ def preview_perception_request(
         show_conf=show_conf,
         request_id=request_id,
     )
-    return summarize_large_fields(payload, max_string_length=max_string_length)
+    return payload
 
 
 def preview_perception_from_inputs(
@@ -169,7 +168,7 @@ def preview_perception_from_inputs(
         request_id: Client-generated request identifier.
 
     Returns:
-        Summarized render request payload for Request JSON display.
+        Raw render request payload for Request JSON display.
     """
     image_payload = resolve_perception_image_payload(
         ctx=ctx,
@@ -254,7 +253,7 @@ def run_perception_render_from_inputs(
         show_conf=show_conf,
         request_id=request_id,
     )
-    request_json = summarize_large_fields(payload)
+    request_json = payload
 
     try:
         image, response_payload = ctx.render_client.render_image_response(server_key, payload)
@@ -267,7 +266,7 @@ def run_perception_render_from_inputs(
             {"status": "error", "error": {"message": error_message}},
         )
 
-    response_json = summarize_large_fields(response_payload)
+    response_json = response_payload
     meta = response_payload.get("meta", {})
     elapsed_ms = meta.get("elapsed_ms")
     status = "Success." if elapsed_ms is None else f"Success. elapsed_ms={elapsed_ms}"
