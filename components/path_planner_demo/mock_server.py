@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import base64
 import io
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 from flask import Flask, jsonify, request
 from PIL import Image, ImageDraw
+
+RENDER_DEBUG_PATH = Path(__file__).resolve().with_name("render.png")
 
 
 def create_path_planner_demo_mock_app() -> Flask:
@@ -37,6 +40,7 @@ def create_path_planner_demo_mock_app() -> Flask:
             show_candidate_paths=bool(request_payload.get("visualization", {}).get("show_candidate_paths", False)),
             show_inflation_area=bool(request_payload.get("visualization", {}).get("show_inflation_area", False)),
         )
+        image.save(RENDER_DEBUG_PATH, format="PNG")
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         return jsonify(

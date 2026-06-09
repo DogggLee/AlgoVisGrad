@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import math
+from pathlib import Path
 from typing import Any
 
 from flask import Flask, jsonify, request
@@ -10,6 +11,7 @@ from PIL import Image, ImageDraw
 
 
 Point = tuple[int, int]
+RENDER_DEBUG_PATH = Path(__file__).resolve().with_name("render.png")
 
 
 class JsonDemoValidationError(ValueError):
@@ -100,6 +102,7 @@ def create_json_demo_mock_app() -> Flask:
             payload=payload,
             show_cost=bool(request_payload.get("visualization", {}).get("show_cost", False)),
         )
+        image.save(RENDER_DEBUG_PATH, format="PNG")
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         return jsonify(

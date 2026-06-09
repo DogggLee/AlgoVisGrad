@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import base64
 import io
+from pathlib import Path
 from typing import Any
 
 from flask import Flask, jsonify, request
 from PIL import Image, ImageDraw
+
+RENDER_DEBUG_PATH = Path(__file__).resolve().with_name("render.png")
 
 
 def create_perception_demo_mock_app() -> Flask:
@@ -32,6 +35,7 @@ def create_perception_demo_mock_app() -> Flask:
             show_class_id=bool(request_payload.get("visualization", {}).get("show_class_id", False)),
             show_conf=bool(request_payload.get("visualization", {}).get("show_conf", False)),
         )
+        image.save(RENDER_DEBUG_PATH, format="PNG")
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         return jsonify(
