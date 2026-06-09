@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import base64
 import io
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from components.path_planner_demo.mock_server import create_path_planner_demo_mock_app
+from components.path_planner_demo.mock_server import RENDER_DEBUG_PATH, create_path_planner_demo_mock_app
 
 
 def test_path_planner_demo_mock_server_health_endpoint_reports_ok() -> None:
@@ -22,45 +23,54 @@ def test_path_planner_demo_mock_server_health_endpoint_reports_ok() -> None:
 def test_path_planner_demo_mock_server_render_endpoint_returns_base64_png() -> None:
     app = create_path_planner_demo_mock_app()
     client = app.test_client()
+    debug_backup = RENDER_DEBUG_PATH.read_bytes() if RENDER_DEBUG_PATH.exists() else None
 
-    response = client.post(
-        "/render",
-        json={
-            "input": {
-                "map": {
-                    "content_type": "array/list",
-                    "filename": "warehouse.json",
-                    "shape": [4, 6],
-                    "dtype": "uint8",
-                    "data": [
-                        [0, 0, 0, 0, 0, 0],
-                        [0, 1, 1, 0, 0, 0],
-                        [0, 0, 0, 0, 1, 0],
-                        [0, 0, 0, 0, 0, 0],
-                    ],
+    try:
+        response = client.post(
+            "/render",
+            json={
+                "input": {
+                    "map": {
+                        "content_type": "array/list",
+                        "filename": "warehouse.json",
+                        "shape": [4, 6],
+                        "dtype": "uint8",
+                        "data": [
+                            [0, 0, 0, 0, 0, 0],
+                            [0, 1, 1, 0, 0, 0],
+                            [0, 0, 0, 0, 1, 0],
+                            [0, 0, 0, 0, 0, 0],
+                        ],
+                    },
+                    "start": [0, 0],
+                    "goal": [5, 3],
+                    "inflation_radius": 1,
                 },
-                "start": [0, 0],
-                "goal": [5, 3],
-                "inflation_radius": 1,
+                "visualization": {
+                    "show_start": True,
+                    "show_goal": True,
+                    "show_path_cost": True,
+                    "show_candidate_paths": True,
+                    "show_inflation_area": True,
+                },
+                "request_id": "req-path-planner",
             },
-            "visualization": {
-                "show_start": True,
-                "show_goal": True,
-                "show_path_cost": True,
-                "show_candidate_paths": True,
-                "show_inflation_area": True,
-            },
-            "request_id": "req-path-planner",
-        },
-    )
+        )
 
-    body = response.get_json()
-    result_image = Image.open(io.BytesIO(base64.b64decode(body["image"]["data"])))
+        body = response.get_json()
+        result_image = Image.open(io.BytesIO(base64.b64decode(body["image"]["data"])))
+        debug_image = Image.open(RENDER_DEBUG_PATH)
 
-    assert response.status_code == 200
-    assert body["status"] == "success"
-    assert body["image"]["content_type"] == "image/png"
-    assert result_image.size == (6, 4)
+        assert response.status_code == 200
+        assert body["status"] == "success"
+        assert body["image"]["content_type"] == "image/png"
+        assert result_image.size == (6, 4)
+        assert debug_image.size == (6, 4)
+    finally:
+        if debug_backup is None:
+            RENDER_DEBUG_PATH.unlink(missing_ok=True)
+        else:
+            RENDER_DEBUG_PATH.write_bytes(debug_backup)
 
 
 
