@@ -169,6 +169,7 @@ class MapPreviewPointPicker:
         map_width = int(grid.shape[1])
         wrapper_id = f"{self.picker_id}-wrapper"
         image_id = f"{self.picker_id}-image"
+        script_id = f"{self.picker_id}-script"
 
         return f"""
 <style>
@@ -193,15 +194,17 @@ class MapPreviewPointPicker:
     width="{preview_image.width}"
     height="{preview_image.height}"
     alt="map preview"
+    oncontextmenu="return false;"
   />
 </div>
-<script>
+<script id="{script_id}">
 (() => {{
+  const wrapper = document.getElementById("{wrapper_id}");
   const img = document.getElementById("{image_id}");
-  if (!img || img.dataset.mapPickerBound === "true") {{
+  if (!wrapper || !img || wrapper.dataset.mapPickerBound === "true") {{
     return;
   }}
-  img.dataset.mapPickerBound = "true";
+  wrapper.dataset.mapPickerBound = "true";
   const previewScale = {preview_scale};
   const mapWidth = {map_width};
   const mapHeight = {map_height};
@@ -211,11 +214,25 @@ class MapPreviewPointPicker:
   if (!eventInput) {{
     return;
   }}
+  const setNativeInputValue = (inputElement, nextValue) => {{
+    const prototype = inputElement.tagName === "TEXTAREA"
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+    if (descriptor && descriptor.set) {{
+      descriptor.set.call(inputElement, nextValue);
+      return;
+    }}
+    inputElement.value = nextValue;
+  }};
 
   const emitSelection = (mouseButton, event) => {{
+    event.preventDefault();
     const rect = img.getBoundingClientRect();
-    const pixelX = Math.max(0, Math.min(img.width - 1, Math.floor(event.clientX - rect.left)));
-    const pixelY = Math.max(0, Math.min(img.height - 1, Math.floor(event.clientY - rect.top)));
+    const renderedWidth = Math.max(rect.width, 1);
+    const renderedHeight = Math.max(rect.height, 1);
+    const pixelX = Math.max(0, Math.min(img.width - 1, Math.floor((event.clientX - rect.left) * (img.width / renderedWidth))));
+    const pixelY = Math.max(0, Math.min(img.height - 1, Math.floor((event.clientY - rect.top) * (img.height / renderedHeight))));
     const cellX = Math.max(0, Math.min(mapWidth - 1, Math.floor(pixelX / previewScale)));
     const cellY = Math.max(0, Math.min(mapHeight - 1, Math.floor(pixelY / previewScale)));
     const payload = JSON.stringify({{
@@ -225,17 +242,27 @@ class MapPreviewPointPicker:
       is_obstacle: Boolean(obstacleGrid[cellY][cellX]),
       emitted_at: Date.now()
     }});
-    eventInput.value = payload;
+    setNativeInputValue(eventInput, payload);
     eventInput.dispatchEvent(new Event("input", {{ bubbles: true }}));
     eventInput.dispatchEvent(new Event("change", {{ bubbles: true }}));
   }};
 
-  img.addEventListener("click", (event) => {{
-    emitSelection("left", event);
+  wrapper.addEventListener("mousedown", (event) => {{
+    if (event.target !== img) {{
+      return;
+    }}
+    if (event.button === 0) {{
+      emitSelection("left", event);
+      return;
+    }}
+    if (event.button === 2) {{
+      emitSelection("right", event);
+    }}
   }});
-  img.addEventListener("contextmenu", (event) => {{
-    event.preventDefault();
-    emitSelection("right", event);
+  wrapper.addEventListener("contextmenu", (event) => {{
+    if (event.target === img) {{
+      event.preventDefault();
+    }}
   }});
 }})();
 </script>

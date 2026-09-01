@@ -44,4 +44,7 @@ def test_map_preview_point_picker_builds_preview_and_hidden_event_channel() -> N
     assert components["preview"].elem_id == "demo-picker"
     assert components["event_channel"].elem_id == "demo-picker-event"
     assert "contextmenu" in components["preview"].value
+    assert 'oncontextmenu="return false;"' in components["preview"].value
+    assert "addEventListener(\"mousedown\"" in components["preview"].value
+    assert "setNativeInputValue" in components["preview"].value
     assert "mouse_button:" in components["preview"].value

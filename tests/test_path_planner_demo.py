@@ -85,12 +85,15 @@ def test_path_planner_demo_vis_window_builds_inside_gradio_container(tmp_path) -
         components = window.build(ctx)
 
     assert components["example_selector"].label == "Map Example"
-    assert components["map_preview"].label == "Selected Map Preview"
     assert components["map_preview"].elem_id == "path-planner-map-preview"
+    assert components["map_preview"].label == "Selected Map Preview"
     assert components["uploaded_map"].label == "Upload Map File"
     assert "title_text" in components
     assert "health_indicator" in components
     assert "refresh_health_button" in components
+    assert "map_picker_event" not in components
+    assert "start_status_text" not in components
+    assert "goal_status_text" not in components
     assert components["start_x"].value == 0
     assert components["start_y"].value == 0
     assert components["goal_x"].value == 1
@@ -199,6 +202,51 @@ def test_path_planner_demo_vis_window_loads_map_examples_and_slider_maximums(tmp
     assert components["goal_y"].maximum == 4
     assert components["goal_x"].value == 6
     assert components["goal_y"].value == 4
+
+
+def test_path_planner_demo_vis_window_marks_obstacle_points_in_slider_labels(tmp_path) -> None:
+    resources_dir = tmp_path / "components" / "path_planner_demo" / "resources"
+    maps_dir = resources_dir / "maps"
+    maps_dir.mkdir(parents=True)
+    (resources_dir / "manifest.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "obstacle_map",
+                    "name": "Obstacle Map",
+                    "data": "maps/obstacle.json",
+                    "content_type": "array/list",
+                    "shape": [2, 2],
+                    "dtype": "uint8",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (maps_dir / "obstacle.json").write_text(
+        json.dumps([[1, 0], [0, 1]]),
+        encoding="utf-8",
+    )
+    ctx = AppContext(
+        config=AppConfig(
+            app=AppSettings(host="127.0.0.1", port=7860, title="Test"),
+            servers={},
+        ),
+        project_root=tmp_path,
+    )
+    window = PathPlannerDemoVisWindow(
+        window_id="path_planner_demo",
+        title="Path Planner Demo",
+        server_key="path_planner",
+    )
+
+    with gr.Blocks():
+        components = window.build(ctx)
+
+    assert components["start_x"].label == "Start X (in obs !!!)"
+    assert components["start_y"].label == "Start Y (in obs !!!)"
+    assert components["goal_x"].label == "Goal X (in obs !!!)"
+    assert components["goal_y"].label == "Goal Y (in obs !!!)"
 
 
 def test_path_planner_demo_vis_window_compacts_example_and_action_controls() -> None:

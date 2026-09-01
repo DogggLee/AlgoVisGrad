@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image
 
 from components.base import BaseVisWindow
+from components.widgets.map_preview_point_picker import render_map_preview_point_picker_image
 from utils.resource_utils import load_manifest, pack_resource
 
 
@@ -133,13 +134,13 @@ def get_path_planner_map_preview(
         PIL image preview of the resolved map data, or None when no map is available.
     """
     if uploaded_map_path:
-        return _render_map_preview_image(
-            _load_map_array_from_path(Path(uploaded_map_path)),
-            start_x=start_x,
-            start_y=start_y,
-            goal_x=goal_x,
-            goal_y=goal_y,
+        image, _scale = render_map_preview_point_picker_image(
+            map_array=_load_map_array_from_path(Path(uploaded_map_path)),
+            start=None if start_x is None or start_y is None else (start_x, start_y),
+            goal=None if goal_x is None or goal_y is None else (goal_x, goal_y),
+            target_size=PATH_PLANNER_DEMO_RESULT_SIZE,
         )
+        return image
 
     if not selected_map_id:
         return None
@@ -147,13 +148,13 @@ def get_path_planner_map_preview(
     resources_dir = ctx.component_resource_path("path_planner_demo")
     manifest = load_manifest(resources_dir)
     item = next(item for item in manifest if item["id"] == selected_map_id)
-    return _render_map_preview_image(
-        _load_map_array_from_path(resources_dir / str(item["data"])),
-        start_x=start_x,
-        start_y=start_y,
-        goal_x=goal_x,
-        goal_y=goal_y,
+    image, _scale = render_map_preview_point_picker_image(
+        map_array=_load_map_array_from_path(resources_dir / str(item["data"])),
+        start=None if start_x is None or start_y is None else (start_x, start_y),
+        goal=None if goal_x is None or goal_y is None else (goal_x, goal_y),
+        target_size=PATH_PLANNER_DEMO_RESULT_SIZE,
     )
+    return image
 
 
 def get_path_planner_map_dimensions(ctx: Any, selected_map_id: str | None) -> tuple[int, int]:
@@ -503,44 +504,6 @@ def _pack_map_payload_from_path(path: Path) -> dict[str, Any]:
     }
 
 
-def _render_map_preview_image(
-    data: np.ndarray,
-    start_x: int | None = None,
-    start_y: int | None = None,
-    goal_x: int | None = None,
-    goal_y: int | None = None,
-) -> Image.Image:
-    """Render map data into a simple visual preview image.
-
-    Args:
-        data: 2D map array where non-zero values are obstacles.
-        start_x: Optional start point horizontal coordinate for preview overlay.
-        start_y: Optional start point vertical coordinate for preview overlay.
-        goal_x: Optional goal point horizontal coordinate for preview overlay.
-        goal_y: Optional goal point vertical coordinate for preview overlay.
-
-    Returns:
-        PIL preview image scaled by an integer factor so grid cells stay visually crisp.
-    """
-    height = max(int(data.shape[0]), 1)
-    width = max(int(data.shape[1]), 1)
-    base_image = Image.new("RGB", (width, height), color=(255, 255, 255))
-
-    for y in range(height):
-        for x in range(width):
-            if int(data[y, x]):
-                base_image.putpixel((x, y), (55, 55, 55))
-
-    if start_x is not None and start_y is not None and 0 <= int(start_x) < width and 0 <= int(start_y) < height:
-        base_image.putpixel((int(start_x), int(start_y)), (0, 200, 0))
-    if goal_x is not None and goal_y is not None and 0 <= int(goal_x) < width and 0 <= int(goal_y) < height:
-        base_image.putpixel((int(goal_x), int(goal_y)), (220, 0, 0))
-
-    preview_target_size = PATH_PLANNER_DEMO_RESULT_SIZE
-    scale = max(preview_target_size // max(width, height), 1)
-    return base_image.resize((width * scale, height * scale), Image.Resampling.NEAREST)
-
-
 def _scale_path_planner_display_image(image: Any) -> Any:
     """Scale one path planner image for crisp grid display in the UI.
 
@@ -558,6 +521,118 @@ def _scale_path_planner_display_image(image: Any) -> Any:
     target_size = PATH_PLANNER_DEMO_RESULT_SIZE
     scale = max(target_size // max(width, height), 1)
     return image.resize((width * scale, height * scale), Image.Resampling.NEAREST)
+
+
+def _get_path_planner_map_array(
+    ctx: Any,
+    selected_map_id: str | None,
+    uploaded_map_path: str | None = None,
+) -> np.ndarray | None:
+    """Resolve one selected or uploaded map into a 2D uint8 array.
+
+    Args:
+        ctx: Application context used to resolve path planner resources.
+        selected_map_id: Manifest id of the selected map example.
+        uploaded_map_path: Optional filesystem path to an uploaded JSON or NPY map file.
+
+    Returns:
+        Resolved 2D uint8 map array, or None when no map is available.
+    """
+    if uploaded_map_path:
+        return _load_map_array_from_path(Path(uploaded_map_path))
+
+    if not selected_map_id:
+        return None
+
+    resources_dir = ctx.component_resource_path("path_planner_demo")
+    manifest = load_manifest(resources_dir)
+    item = next(item for item in manifest if item["id"] == selected_map_id)
+    return _load_map_array_from_path(resources_dir / str(item["data"]))
+
+
+def _is_path_planner_obstacle(
+    map_array: np.ndarray | list[list[int]] | None,
+    x: int,
+    y: int,
+) -> bool:
+    """Check whether one selected cell is an obstacle in the current map array.
+
+    Args:
+        map_array: Current map array used by the point picker.
+        x: Cell x coordinate.
+        y: Cell y coordinate.
+
+    Returns:
+        True when the cell is non-zero in the map array.
+    """
+    if map_array is None:
+        return False
+    grid = np.asarray(map_array, dtype=np.uint8)
+    if int(y) < 0 or int(x) < 0 or int(y) >= int(grid.shape[0]) or int(x) >= int(grid.shape[1]):
+        return False
+    return bool(grid[int(y), int(x)])
+
+
+def _format_path_planner_point_status(
+    name: str,
+    x: int,
+    y: int,
+    is_obstacle: bool,
+) -> str:
+    """Format one start or goal status line for UI display.
+
+    Args:
+        name: Point name, usually `Start` or `Goal`.
+        x: Cell x coordinate.
+        y: Cell y coordinate.
+        is_obstacle: Whether the selected cell is an obstacle.
+
+    Returns:
+        Human-readable point status line.
+    """
+    obstacle_text = "true" if is_obstacle else "false"
+    return f"{name}: (x={x}, y={y}), obstacle={obstacle_text}"
+
+
+def _format_path_planner_slider_label(base_label: str, is_obstacle: bool) -> str:
+    """Build one slider label with an obstacle warning suffix when needed.
+
+    Args:
+        base_label: Base slider label such as `Start X` or `Goal Y`.
+        is_obstacle: Whether the associated point lies inside an obstacle cell.
+
+    Returns:
+        Slider label text for the current obstacle state.
+    """
+    if is_obstacle:
+        return f"{base_label} (in obs !!!)"
+    return base_label
+
+
+def _render_path_planner_map_preview_from_array(
+    map_array: np.ndarray | list[list[int]] | None,
+    start_xy: tuple[int, int],
+    goal_xy: tuple[int, int],
+) -> Image.Image | None:
+    """Render a path planner map preview directly from one resolved map array.
+
+    Args:
+        map_array: Current resolved map array.
+        start_xy: Current start point as `(x, y)`.
+        goal_xy: Current goal point as `(x, y)`.
+
+    Returns:
+        Preview image with start and goal markers, or None when no map exists.
+    """
+    if map_array is None:
+        return None
+    image, _scale = render_map_preview_point_picker_image(
+        map_array=map_array,
+        start=start_xy,
+        goal=goal_xy,
+        target_size=PATH_PLANNER_DEMO_RESULT_SIZE,
+    )
+    return image
 
 
 class PathPlannerDemoVisWindow(BaseVisWindow):
@@ -595,14 +670,14 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
         initial_width, initial_height = get_path_planner_map_dimensions(ctx, initial_map_id)
         initial_max_x = max(initial_width - 1, 0)
         initial_max_y = max(initial_height - 1, 0)
-        initial_map_preview = get_path_planner_map_preview(
-            ctx,
-            initial_map_id,
-            start_x=0,
-            start_y=0,
-            goal_x=initial_max_x,
-            goal_y=initial_max_y,
+        initial_map_array = _get_path_planner_map_array(ctx, initial_map_id)
+        initial_map_preview = _render_path_planner_map_preview_from_array(
+            initial_map_array,
+            (0, 0),
+            (initial_max_x, initial_max_y),
         )
+        initial_start_in_obstacle = _is_path_planner_obstacle(initial_map_array, 0, 0)
+        initial_goal_in_obstacle = _is_path_planner_obstacle(initial_map_array, initial_max_x, initial_max_y)
 
         # Starter template title row: title, service status, and manual refresh.
         # 创建Gradio的UI组件，该部分可以不作任何修改，默认所有算法页面都需要该内容（页面标题，算法Server状态，状态刷新按钮）
@@ -615,6 +690,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                 refresh_health_button = gr.Button("↻", size="sm", min_width=48)
 
         selected_map_id = gr.State(initial_map_id)
+        current_map_array = gr.State(None if initial_map_array is None else initial_map_array.tolist())
 
         # Starter template input and render columns: request inputs on the left, render settings and outputs on the right.
         # 核心页面大致分为三块：算法输入列、输出渲染列、和Debug行。 按倒“品”字形排列
@@ -645,18 +721,30 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                     elem_id="path-planner-map-preview",
                 )
                 with gr.Row():
-                    start_x = gr.Slider(label="Start X", minimum=0, maximum=initial_max_x, value=0, step=1)
-                    start_y = gr.Slider(label="Start Y", minimum=0, maximum=initial_max_y, value=0, step=1)
+                    start_x = gr.Slider(
+                        label=_format_path_planner_slider_label("Start X", initial_start_in_obstacle),
+                        minimum=0,
+                        maximum=initial_max_x,
+                        value=0,
+                        step=1,
+                    )
+                    start_y = gr.Slider(
+                        label=_format_path_planner_slider_label("Start Y", initial_start_in_obstacle),
+                        minimum=0,
+                        maximum=initial_max_y,
+                        value=0,
+                        step=1,
+                    )
                 with gr.Row():
                     goal_x = gr.Slider(
-                        label="Goal X",
+                        label=_format_path_planner_slider_label("Goal X", initial_goal_in_obstacle),
                         minimum=0,
                         maximum=initial_max_x,
                         value=initial_max_x,
                         step=1,
                     )
                     goal_y = gr.Slider(
-                        label="Goal Y",
+                        label=_format_path_planner_slider_label("Goal Y", initial_goal_in_obstacle),
                         minimum=0,
                         maximum=initial_max_y,
                         value=initial_max_y,
@@ -682,7 +770,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
                     show_inflation_area = gr.Checkbox(label="Show Inflation", value=False)
 
                 # with gr.Row():
-                    show_path_cost = gr.Checkbox(label="Show Path Cost", value=True)
+                    show_path_cost = gr.Checkbox(label="Show Path Cost", value=False)
                     show_candidate_paths = gr.Checkbox(label="Show Candidate Paths", value=False)
                     
                 output_image = gr.Image(
@@ -702,54 +790,94 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
 
         # Starter template callback definitions: keep map selection, preview, and request workflows readable for copy-and-adapt development.
         # 提前定义每个UI控件的CallBack函数（主要是各类按钮的响应）
-        def select_example(selected_map_value: str | None) -> tuple[str | None, Image.Image | None, dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
-            slider_updates = build_path_planner_slider_updates(ctx, selected_map_value)
-            if not selected_map_value:
-                return None, None, *slider_updates
+        def build_preview_outputs(
+            map_array_value: np.ndarray | list[list[int]] | None,
+            start_xy: tuple[int, int],
+            goal_xy: tuple[int, int],
+        ) -> tuple[Image.Image | None, dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+            start_obstacle = _is_path_planner_obstacle(map_array_value, start_xy[0], start_xy[1])
+            goal_obstacle = _is_path_planner_obstacle(map_array_value, goal_xy[0], goal_xy[1])
             return (
-                selected_map_value,
-                get_path_planner_map_preview(
-                    ctx,
-                    selected_map_value,
-                    start_x=slider_updates[0]["value"],
-                    start_y=slider_updates[1]["value"],
-                    goal_x=slider_updates[2]["value"],
-                    goal_y=slider_updates[3]["value"],
-                ),
-                *slider_updates,
+                _render_path_planner_map_preview_from_array(map_array_value, start_xy, goal_xy),
+                gr.update(label=_format_path_planner_slider_label("Start X", start_obstacle)),
+                gr.update(label=_format_path_planner_slider_label("Start Y", start_obstacle)),
+                gr.update(label=_format_path_planner_slider_label("Goal X", goal_obstacle)),
+                gr.update(label=_format_path_planner_slider_label("Goal Y", goal_obstacle)),
             )
 
-        def preview_uploaded_map(uploaded_map_path: str | None) -> tuple[Image.Image | None, dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
-            slider_updates = build_uploaded_path_planner_slider_updates(uploaded_map_path)
+        def select_example(
+            selected_map_value: str | None,
+        ) -> tuple[
+            str | None,
+            list[list[int]] | None,
+            Image.Image | None,
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+        ]:
+            slider_updates = build_path_planner_slider_updates(ctx, selected_map_value)
+            map_array = _get_path_planner_map_array(ctx, selected_map_value)
+            start_xy = (int(slider_updates[0]["value"]), int(slider_updates[1]["value"]))
+            goal_xy = (int(slider_updates[2]["value"]), int(slider_updates[3]["value"]))
+            preview_image, start_x_label, start_y_label, goal_x_label, goal_y_label = build_preview_outputs(map_array, start_xy, goal_xy)
+            if not selected_map_value:
+                return None, None, preview_image, *slider_updates, start_x_label, start_y_label, goal_x_label, goal_y_label
             return (
-                get_path_planner_map_preview(
-                    ctx,
-                    None,
-                    uploaded_map_path=uploaded_map_path,
-                    start_x=slider_updates[0]["value"],
-                    start_y=slider_updates[1]["value"],
-                    goal_x=slider_updates[2]["value"],
-                    goal_y=slider_updates[3]["value"],
-                ),
+                selected_map_value,
+                None if map_array is None else map_array.tolist(),
+                preview_image,
                 *slider_updates,
+                start_x_label,
+                start_y_label,
+                goal_x_label,
+                goal_y_label,
+            )
+
+        def preview_uploaded_map(
+            uploaded_map_path: str | None,
+        ) -> tuple[
+            list[list[int]] | None,
+            Image.Image | None,
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+        ]:
+            slider_updates = build_uploaded_path_planner_slider_updates(uploaded_map_path)
+            map_array = _get_path_planner_map_array(ctx, None, uploaded_map_path=uploaded_map_path)
+            start_xy = (int(slider_updates[0]["value"]), int(slider_updates[1]["value"]))
+            goal_xy = (int(slider_updates[2]["value"]), int(slider_updates[3]["value"]))
+            preview_image, start_x_label, start_y_label, goal_x_label, goal_y_label = build_preview_outputs(map_array, start_xy, goal_xy)
+            return (
+                None if map_array is None else map_array.tolist(),
+                preview_image,
+                *slider_updates,
+                start_x_label,
+                start_y_label,
+                goal_x_label,
+                goal_y_label,
             )
 
         def refresh_map_preview(
-            selected_map_value: str | None,
-            uploaded_map_path: str | None,
+            map_array_value: list[list[int]] | None,
             start_x_value: int,
             start_y_value: int,
             goal_x_value: int,
             goal_y_value: int,
-        ) -> Image.Image | None:
-            return get_path_planner_map_preview(
-                ctx,
-                selected_map_value,
-                uploaded_map_path=uploaded_map_path,
-                start_x=start_x_value,
-                start_y=start_y_value,
-                goal_x=goal_x_value,
-                goal_y=goal_y_value,
+        ) -> tuple[Image.Image | None, dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+            return build_preview_outputs(
+                map_array_value,
+                (int(start_x_value), int(start_y_value)),
+                (int(goal_x_value), int(goal_y_value)),
             )
 
         def preview_request(
@@ -828,32 +956,32 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
         example_selector.change(
             fn=select_example,
             inputs=[example_selector],
-            outputs=[selected_map_id, map_preview, start_x, start_y, goal_x, goal_y],
+            outputs=[selected_map_id, current_map_array, map_preview, start_x, start_y, goal_x, goal_y, start_x, start_y, goal_x, goal_y],
         )
         uploaded_map.upload(
             fn=preview_uploaded_map,
             inputs=[uploaded_map],
-            outputs=[map_preview, start_x, start_y, goal_x, goal_y],
+            outputs=[current_map_array, map_preview, start_x, start_y, goal_x, goal_y, start_x, start_y, goal_x, goal_y],
         )
         start_x.change(
             fn=refresh_map_preview,
-            inputs=[selected_map_id, uploaded_map, start_x, start_y, goal_x, goal_y],
-            outputs=[map_preview],
+            inputs=[current_map_array, start_x, start_y, goal_x, goal_y],
+            outputs=[map_preview, start_x, start_y, goal_x, goal_y],
         )
         start_y.change(
             fn=refresh_map_preview,
-            inputs=[selected_map_id, uploaded_map, start_x, start_y, goal_x, goal_y],
-            outputs=[map_preview],
+            inputs=[current_map_array, start_x, start_y, goal_x, goal_y],
+            outputs=[map_preview, start_x, start_y, goal_x, goal_y],
         )
         goal_x.change(
             fn=refresh_map_preview,
-            inputs=[selected_map_id, uploaded_map, start_x, start_y, goal_x, goal_y],
-            outputs=[map_preview],
+            inputs=[current_map_array, start_x, start_y, goal_x, goal_y],
+            outputs=[map_preview, start_x, start_y, goal_x, goal_y],
         )
         goal_y.change(
             fn=refresh_map_preview,
-            inputs=[selected_map_id, uploaded_map, start_x, start_y, goal_x, goal_y],
-            outputs=[map_preview],
+            inputs=[current_map_array, start_x, start_y, goal_x, goal_y],
+            outputs=[map_preview, start_x, start_y, goal_x, goal_y],
         )
         preview_button.click(
             fn=preview_request,
@@ -898,6 +1026,7 @@ class PathPlannerDemoVisWindow(BaseVisWindow):
             "refresh_health_button": refresh_health_button,
             "example_selector": example_selector,
             "map_preview": map_preview,
+            "current_map_array": current_map_array,
             "selected_map_id": selected_map_id,
             "uploaded_map": uploaded_map,
             "start_x": start_x,

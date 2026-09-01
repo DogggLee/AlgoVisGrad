@@ -27,3 +27,25 @@ Each starter demo `build()` method must use a fixed segmented comment skeleton s
 That comment skeleton must cover at least the title row, input column, render column, debug row, callback definitions, and event binding plus returned components.
 
 This convention is a documentation and readability constraint on the existing code flow, not a requirement to extract each section into separate helper methods.
+
+### Map Cell Picker
+
+The PathPlannerDemo interaction concept that converts a user-selected map location into a grid cell coordinate. It is based on the current map data resource, not the rendered preview image, and synchronizes with the explicit start and goal coordinate controls.
+
+### MapPreviewPointPicker
+
+A reusable project-local component concept for map-based point selection. It displays a map preview, converts user clicks into grid cell selections against the underlying map data, and reports the selected cell together with its obstacle status without exposing its internal interaction mechanism to consuming VisWindow code.
+
+Its first-stage implementation lives under `components/widgets/` as a project-local reusable UI building block rather than a separately packaged Gradio custom component.
+
+It emits raw selection events in the form `mouse_button + cell_x + cell_y + is_obstacle`, rather than directly encoding `start` or `goal` semantics.
+
+It is currently not wired into the starter `PathPlannerDemoVisWindow`, because the browser-level left/right click behavior proved unreliable enough to hurt template usability.
+
+The current `PathPlannerDemoVisWindow` instead keeps map preview as plain `gr.Image` output and reports obstacle-state feedback through the `Start X/Y` and `Goal X/Y` slider labels.
+
+## Mock Server Debug Output
+
+Every mock server saves its latest rendered image to a fixed local `render.png` beside the corresponding `mock_server.py`.
+
+Each new `/render` call overwrites the previous `render.png`, because mock servers are treated as single-step local debugging helpers rather than history-preserving services.

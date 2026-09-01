@@ -73,6 +73,7 @@ python app.py
   ```
 
   `build(ctx)` 是构造本算法页面的UI控件以及对应的CallBack函数，要注意VisWindow不是一个独立的网页，而是一组UI控件集合（可以理解为PPT里的组合），可以随时被顶层的app.py重新整体排布到其他位置。
+  Do not create `gr.Blocks` or top-level `gr.Tab` inside a `VisWindow`; `app.py` owns the top-level layout.
 
 
   目前的典型页面可以大致分为以下4个区域：
